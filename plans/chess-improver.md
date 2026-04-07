@@ -356,3 +356,26 @@ Add `user_id` to all tables. Enable Supabase Row Level Security policies so user
 - [ ] Two separate test accounts have fully isolated card decks and review history
 - [ ] All API routes return 401 for unauthenticated requests
 - [ ] Integration tested — user A cannot read or write user B's rows
+
+---
+
+## Phase 19: Move Explanations (V2 Enhancement)
+
+**User stories**: TBD
+
+### What to build
+
+Generate plain-English explanations for why a move is classified as a blunder, mistake, great, or brilliant. Use the `bestLine` field (principal variation) captured by the Stockfish Analyzer alongside the CPL delta and classification to construct a prompt for Claude. Return a concise explanation — 1–2 sentences — that describes the consequence of the move in terms a club-level player would understand (e.g. "This blunder allows your opponent to win the exchange after Nf3, leaving you down a rook for a bishop").
+
+The explanation is generated at sync time (not during review) and stored on the `cards` table as an `explanation` column. Displayed on the flashcard after the user resolves the position.
+
+**Dependencies**: Phase 7 (`bestLine` in `PositionAnalysis`), Phase 8 (Card Generator writes to `cards`), Anthropic API.
+
+### Acceptance criteria
+
+- [ ] `explanation` column added to `cards` table via migration
+- [ ] Claude generates a 1–2 sentence explanation from `fen`, `movePlayed`, `bestMove`, `bestLine`, `cpl`, and `classification`
+- [ ] Explanation stored on the card at sync time
+- [ ] Explanation displayed on the flashcard after the user resolves the position
+- [ ] Graceful fallback if explanation generation fails (card still created, explanation null)
+- [ ] Integration tested — sync run with mocked Claude call produces expected explanation on card

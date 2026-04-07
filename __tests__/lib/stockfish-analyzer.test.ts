@@ -8,18 +8,28 @@ import type { GamePosition } from '@/lib/game-parser'
 
 // Builds a mock engine that returns the given centipawn scores in sequence
 // (one per `go depth` call — one per FEN evaluated)
-function makeMockEngine(cpScores: number[]): () => UciEngine {
+// Optionally accepts bestMoves and pvLines arrays for Phase 7 field testing.
+function makeMockEngine(
+  cpScores: number[],
+  bestMoves?: string[],
+  pvLines?: string[][],
+): () => UciEngine {
   let callIndex = 0
   return () => {
     const engine: UciEngine = {
       onmessage: null,
       postMessage(command: string) {
         if (command.startsWith('go')) {
-          const score = cpScores[callIndex++] ?? 0
+          const idx = callIndex++
+          const score = cpScores[idx] ?? 0
+          const bestMove = bestMoves?.[idx] ?? 'e2e4'
+          const pv = pvLines?.[idx] ?? ['e2e4', 'e7e5']
           // Fire asynchronously to simulate engine latency
           setTimeout(() => {
-            engine.onmessage?.(`info depth 15 score cp ${score} nodes 1000`)
-            engine.onmessage?.('bestmove e2e4 ponder e7e5')
+            engine.onmessage?.(
+              `info depth 15 score cp ${score} pv ${pv.join(' ')}`,
+            )
+            engine.onmessage?.(`bestmove ${bestMove} ponder e7e5`)
           }, 0)
         }
       },
@@ -132,6 +142,60 @@ describe('analyzeGame', () => {
       expect(result).toHaveLength(2)
       expect(result[0].cpl).toBe(50)  // max(0, 30+20)
       expect(result[1].cpl).toBe(40)  // max(0, 25+15)
+    })
+  })
+
+  describe('Phase 7: bestMove, bestLine, and classification fields', () => {
+    const startFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+
+    it('captures bestMove from engine output', async () => {
+      const positions: GamePosition[] = [{ fen: startFen, movePlayed: 'e4' }]
+      // evalBefore=20, evalAfter=10; bestMove for evalBefore call = 'e2e4'
+      const result = await analyzeGame(
+        positions,
+        makeMockEngine([20, 10], ['e2e4', 'd2d4']),
+      )
+      expect(result[0].bestMove).toBe('e2e4')
+    })
+
+    it('captures bestLine (PV) from engine output', async () => {
+      const positions: GamePosition[] = [{ fen: startFen, movePlayed: 'e4' }]
+      const result = await analyzeGame(
+        positions,
+        makeMockEngine([20, 10], ['e2e4'], [['e2e4', 'e7e5', 'g1f3']]),
+      )
+      expect(result[0].bestLine).toEqual(['e2e4', 'e7e5', 'g1f3'])
+    })
+
+    it('classifies a blunder (CPL > 200) correctly', async () => {
+      const positions: GamePosition[] = [{ fen: startFen, movePlayed: 'e4' }]
+      // CPL = max(0, 50 + 260) = 310 → blunder
+      const result = await analyzeGame(
+        positions,
+        makeMockEngine([50, 260], ['d2d4']),
+      )
+      expect(result[0].classification).toBe('blunder')
+    })
+
+    it('classifies a great move (matches bestMove, not forced) correctly', async () => {
+      // Use a position with many legal moves; movePlayed matches bestMove; CPL = 0
+      const positions: GamePosition[] = [{ fen: startFen, movePlayed: 'e4' }]
+      // CPL = max(0, 20 + (-25)) = 0; bestMove for evalBefore = 'e2e4' = movePlayed
+      const result = await analyzeGame(
+        positions,
+        makeMockEngine([20, -25], ['e2e4']),
+      )
+      expect(result[0].classification).toBe('great')
+    })
+
+    it('returns null classification for an unremarkable move', async () => {
+      const positions: GamePosition[] = [{ fen: startFen, movePlayed: 'e4' }]
+      // CPL = 50 (between 0 and 100); doesn't match bestMove
+      const result = await analyzeGame(
+        positions,
+        makeMockEngine([100, -50], ['d2d4']),
+      )
+      expect(result[0].classification).toBeNull()
     })
   })
 
