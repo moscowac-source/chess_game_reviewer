@@ -267,12 +267,12 @@ Review the mockup and document the following so all UI phases have a shared refe
 
 ### Acceptance criteria
 
-- [ ] Screenshot(s) from Stitch mockup checked into `designs/`
-- [ ] Screen inventory documented (all screens identified from the mockup)
-- [ ] Component list per screen documented
-- [ ] Color palette and typography noted (hex values or Tailwind token names)
-- [ ] Interaction states for the review board documented (all states from the hint/attempt flow)
-- [ ] Design notes committed to `designs/DESIGN.md` for reference during implementation
+- [x] `designs/DESIGN.md` committed with full design system, screen inventory, and component notes
+- [ ] Screenshot(s) from Stitch mockup added to `designs/` (dashboard.png, study.png)
+- [x] Screen inventory documented (Dashboard, Study/Review — see DESIGN.md §6)
+- [x] Component list per screen documented
+- [x] Color palette and typography noted (see DESIGN.md §2–3)
+- [x] FSRS rating button states documented (Again/Hard/Good/Easy with intervals)
 
 ---
 
@@ -343,7 +343,7 @@ Add three focused quiz modes alongside the default daily review. Each mode filte
 **Modes:**
 - **Recent Games** — cards generated from games played in the last 7 days. Good for reviewing a recent session while it's fresh.
 - **Mistakes to Master** — cards with classification `blunder` or `mistake` only. Drills the positions where you went wrong and why.
-- **Back to Brilliancies** — cards with classification `great` or `brilliant` only. Revisits positions where you found the best move, reinforcing pattern recognition for strong play.
+- **Brilliant Reinforcements** — cards with classification `great` or `brilliant` only. Revisits positions where you found the best move, reinforcing pattern recognition for strong play.
 
 **API change**: extend `GET /api/review/session` with an optional `mode` query parameter:
 ```
@@ -359,7 +359,7 @@ Default is `'standard'` (existing behavior, unchanged).
 
 - [ ] `GET /api/review/session?mode=recent` returns only cards from games played in the last 7 days
 - [ ] `GET /api/review/session?mode=mistakes` returns only cards with classification `blunder` or `mistake`
-- [ ] `GET /api/review/session?mode=brilliancies` returns only cards with classification `great` or `brilliant`
+- [ ] `GET /api/review/session?mode=brilliancies` returns only cards with classification `great` or `brilliant` (UI label: "Brilliant Reinforcements")
 - [ ] `mode=standard` (default) behaves identically to the existing session endpoint
 - [ ] Each mode still applies FSRS due-date filtering within its card pool
 - [ ] Mode selection home screen renders the four modes with due-card counts
