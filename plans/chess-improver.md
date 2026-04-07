@@ -186,11 +186,11 @@ Takes classified positions from the Analyzer and writes cards to the `cards` tab
 
 ### Acceptance criteria
 
-- [ ] `POST /api/sync` with `mode=historical` processes all games and writes cards
-- [ ] `POST /api/sync` with `mode=incremental` processes only recent games
-- [ ] Pipeline errors (bad PGN, analyzer failure) are caught and do not crash the whole sync
-- [ ] Integration tested end-to-end with mock Chess.com client and fixture data — asserts expected card rows in DB
-- [ ] Response includes `{ gamesProcessed, cardsCreated, errors[] }`
+- [x] `POST /api/sync` with `mode=historical` processes all games and writes cards
+- [x] `POST /api/sync` with `mode=incremental` processes only recent games
+- [x] Pipeline errors (bad PGN, analyzer failure) are caught and do not crash the whole sync
+- [x] Integration tested end-to-end with mock Chess.com client and fixture data — asserts expected card rows in DB
+- [x] Response includes `{ gamesProcessed, cardsCreated, errors[] }`
 
 ---
 
