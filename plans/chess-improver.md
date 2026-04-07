@@ -263,11 +263,11 @@ Review the mockup and document the following so all UI phases have a shared refe
 - Color palette, typography, and spacing decisions
 - Interaction states (idle, hint shown, correct, incorrect, locked)
 
-**Design file**: `designs/ui-mockup.stitch` — add this file to the repo before starting this phase.
+**Design files**: Export each screen from Stitch as a PNG and save to `designs/` (e.g. `designs/home.png`, `designs/review-session.png`, `designs/session-complete.png`, `designs/sync-status.png`). Add all screenshots before starting this phase.
 
 ### Acceptance criteria
 
-- [ ] `designs/ui-mockup.stitch` checked into the repo
+- [ ] Screenshot(s) from Stitch mockup checked into `designs/`
 - [ ] Screen inventory documented (all screens identified from the mockup)
 - [ ] Component list per screen documented
 - [ ] Color palette and typography noted (hex values or Tailwind token names)
