@@ -1,0 +1,358 @@
+# Plan: Chess Improver — Personal Game-Based Flashcard System
+
+> Source PRD: `/PRD.md`
+> Process: `PROCESS.md` — read before starting any phase
+
+## Architectural Decisions
+
+Durable decisions that apply across all phases:
+
+- **Routes**:
+  - `POST /api/sync` — trigger full sync (historical or incremental)
+  - `GET /api/sync/status` — last sync time, counts, error state
+  - `GET /api/review/session` — build and return daily review queue
+  - `PATCH /api/review/cards/[cardId]` — record a review result
+- **Schema tables**: `users`, `games`, `cards`, `card_state`, `review_log`, `sync_log`
+- **Key models**:
+  - `Card` — `id`, `fen`, `correct_move`, `classification` (blunder/mistake/great/brilliant), `created_at`
+  - `CardState` — `id`, `user_id`, `card_id`, FSRS fields (`stability`, `difficulty`, `due_date`, `review_count`, `state`)
+  - `Game` — `id`, `user_id`, `pgn`, `source` (chess.com), `played_at`, `processed_at`
+  - `SyncLog` — `id`, `user_id`, `mode` (historical/incremental), `started_at`, `completed_at`, `games_processed`, `cards_created`, `error`
+- **Auth**: Supabase Auth, email/password. `user_id` scopes all card, review, and sync state. RLS on all tables. Added in Phase 17–18 — early phases use a single hardcoded dev user.
+- **Sync pipeline**: Chess.com API Client → Game Parser → Stockfish Analyzer → Card Generator, orchestrated by Sync Orchestrator. Runs as Vercel Background Function (nightly cron + manual trigger). Never runs in real-time during a user session.
+- **Position identity**: FEN string is the canonical deduplication key. Exact FEN match = same card. Different FEN = separate card even if thematically similar.
+- **FSRS rating mapping**: correct on first attempt = `Easy`, correct after hint = `Good`, correct after 2+ attempts = `Hard`, failed = `Again`.
+- **API layer is mobile-ready**: all logic lives in Next.js API routes. The web frontend and future React Native app consume the same routes — no business logic in UI components.
+
+---
+
+## Phase 1: Project Scaffold
+
+**User stories**: —
+
+### What to build
+
+Initialize the Next.js (TypeScript) project with all required dependencies. Configure Supabase client, environment variables, and a basic health check API route. Set up the test harness (Jest + React Testing Library). Nothing is functional beyond the ability to run the dev server and the test suite.
+
+**Dependencies to install**: `next`, `typescript`, `@supabase/supabase-js`, `react-chessboard`, `chess.js`, `stockfish`, `ts-fsrs`, `jest`, `@testing-library/react`, `@testing-library/jest-dom`.
+
+### Acceptance criteria
+
+- [x] `npm run dev` starts without errors
+- [x] `npm test` runs and the test harness executes a trivial passing test
+- [x] `GET /api/health` returns `{ status: 'ok' }`
+- [x] Supabase client initializes from env vars without throwing
+- [x] TypeScript compiles with no errors
+
+---
+
+## Phase 2: Database Schema
+
+**User stories**: 23
+
+### What to build
+
+Create all Supabase tables via SQL migrations. Generate TypeScript types from the schema. The schema must match the architectural decisions above and be ready to support all future phases without modification to table structure.
+
+### Acceptance criteria
+
+- [x] All tables exist in Supabase: `users`, `games`, `cards`, `card_state`, `review_log`, `sync_log`
+- [x] All columns match the key models defined in the architectural decisions section
+- [x] TypeScript types generated and importable from a central types file
+- [x] Foreign key constraints correct (`card_state.card_id → cards.id`, `card_state.user_id → users.id`, etc.)
+- [x] Migrations are version-controlled and re-runnable
+
+---
+
+## Phase 3: Chess.com API Client — Single Archive Fetch
+
+**User stories**: 1, 5
+
+### What to build
+
+A module that fetches a single monthly archive from `api.chess.com/pub/player/{username}/games/{YYYY}/{MM}`. Handles HTTP errors gracefully, parses the response shape, and enforces a configurable delay between requests for rate limiting. Returns an array of raw PGN strings.
+
+### Acceptance criteria
+
+- [x] Fetches a single archive and returns parsed PGN array
+- [x] Returns an empty array (not an error) for months with no games
+- [x] Throws a typed error on non-200 HTTP responses
+- [x] Respects a configurable rate-limit delay between calls
+- [x] Unit tested with mocked HTTP responses (success, empty, 429, 500)
+
+---
+
+## Phase 4: Chess.com API Client — Historical + Incremental Modes
+
+**User stories**: 2, 3
+
+### What to build
+
+Extend the Chess.com API client with two modes built on top of Phase 3's single-archive fetcher:
+- **Historical**: fetches the list of all available archive URLs for a username, iterates every month, returns all PGNs
+- **Incremental**: fetches only the most recent month's archive
+
+### Acceptance criteria
+
+- [x] Historical mode fetches all available months and returns combined PGN array
+- [x] Incremental mode fetches only the most recent archive month
+- [x] Rate-limit delay applied between each archive fetch in historical mode
+- [x] Unit tested with fixture multi-month archive index responses
+- [x] Both modes return the same shape — callers cannot tell them apart
+
+---
+
+## Phase 5: Game Parser
+
+**User stories**: 2, 5
+
+### What to build
+
+A pure function module that accepts a PGN string and returns a sequence of `{ fen: string, movePlayed: string }` records — one per ply in the game. Does not depend on Chess.com annotations. Works for all game types (daily, rapid, blitz, bullet).
+
+### Acceptance criteria
+
+- [x] Parses a complete PGN and returns the correct FEN at every ply
+- [x] `movePlayed` is in standard algebraic notation (SAN)
+- [x] Handles edge cases: resignations, draws, incomplete games
+- [x] Unit tested with at least 3 fixture PGN strings covering different game types
+- [x] Pure function — no side effects, no DB calls
+
+---
+
+## Phase 6: Stockfish Analyzer — CPL Evaluation
+
+**User stories**: 6, 7, 8, 9
+
+### What to build
+
+Set up server-side Stockfish (via the `stockfish` npm package). Given a sequence of positions from the Game Parser, compute the centipawn evaluation before and after each move, returning the CPL delta per ply. Runs as a batch process — not real-time.
+
+### Acceptance criteria
+
+- [ ] Stockfish initializes server-side without errors
+- [ ] Returns a CPL delta for each position in a sequence
+- [ ] Engine output correctly parsed into numeric centipawn values
+- [ ] Unit tested with mocked Stockfish output and fixture position sequences
+- [ ] Does not run Stockfish in the browser — server-only guard in place
+
+---
+
+## Phase 7: Stockfish Analyzer — Move Classification
+
+**User stories**: 6, 7, 8, 9
+
+### What to build
+
+Apply CPL thresholds to classify each move. Layer on top of Phase 6's CPL output. Also identify Great and Brilliant moves by detecting when the played move matches the engine's top choice in positions with meaningful alternatives.
+
+**Thresholds**: Blunder >200 CPL, Mistake 100–200 CPL, Great/Brilliant = engine top-choice with meaningful alternatives.
+
+### Acceptance criteria
+
+- [ ] Blunder threshold (>200 CPL) correctly applied
+- [ ] Mistake threshold (100–200 CPL) correctly applied
+- [ ] Great/Brilliant correctly identified when move matches engine top choice
+- [ ] Edge cases: CPL exactly at threshold, forced moves, no alternatives
+- [ ] Unit tested — all classification branches covered
+
+---
+
+## Phase 8: Card Generator
+
+**User stories**: 6, 7, 8, 9, 10, 12
+
+### What to build
+
+Takes classified positions from the Analyzer and writes cards to the `cards` table. Deduplicates by FEN: if a card for that FEN already exists, no duplicate is created. Different FENs always produce separate cards regardless of thematic similarity.
+
+### Acceptance criteria
+
+- [ ] New FEN → new row in `cards` table
+- [ ] Duplicate FEN → no new row created (idempotent)
+- [ ] Different FENs → separate cards, even from the same game
+- [ ] `correct_move` and `classification` correctly populated
+- [ ] Unit tested with sets of classified positions including deliberate duplicates
+
+---
+
+## Phase 9: Sync Orchestrator — Full Pipeline
+
+**User stories**: 2, 4
+
+### What to build
+
+`POST /api/sync` wires all pipeline modules end-to-end: Chess.com Client → Game Parser → Stockfish Analyzer → Card Generator. Accepts a `mode` parameter (`historical` | `incremental`). Returns a summary of what was processed. Integration tested with a mock Chess.com client.
+
+### Acceptance criteria
+
+- [ ] `POST /api/sync` with `mode=historical` processes all games and writes cards
+- [ ] `POST /api/sync` with `mode=incremental` processes only recent games
+- [ ] Pipeline errors (bad PGN, analyzer failure) are caught and do not crash the whole sync
+- [ ] Integration tested end-to-end with mock Chess.com client and fixture data — asserts expected card rows in DB
+- [ ] Response includes `{ gamesProcessed, cardsCreated, errors[] }`
+
+---
+
+## Phase 10: Sync Scheduling + Status Logging
+
+**User stories**: 3, 4, 24
+
+### What to build
+
+`sync_log` rows written on every sync run (start time, completion time, mode, counts, errors). `GET /api/sync/status` returns the most recent log entry. Vercel Cron configured to trigger `POST /api/sync?mode=incremental` nightly.
+
+### Acceptance criteria
+
+- [ ] Every sync run writes a `sync_log` row on start and updates it on completion
+- [ ] `GET /api/sync/status` returns the latest sync log
+- [ ] Vercel Cron config present and targeting the correct route + mode
+- [ ] Error state correctly logged when sync partially or fully fails
+- [ ] Integration tested — sync run produces expected log entry
+
+---
+
+## Phase 11: FSRS Engine
+
+**User stories**: 11, 18, 19, 21
+
+### What to build
+
+Wrap `ts-fsrs` into a clean internal interface. Manage card state initialization for new cards. Implement `recordReview(cardId, rating)` — updates `card_state` with new FSRS values. Implement `getNextCard(userId)` — returns the next due card for a user. Map attempt outcomes to FSRS ratings per the architectural decision above.
+
+### Acceptance criteria
+
+- [ ] New card gets initialized with correct FSRS defaults in `card_state`
+- [ ] `recordReview` with `Easy` increases interval correctly
+- [ ] `recordReview` with `Again` resets interval
+- [ ] `getNextCard` returns the card with the earliest due date
+- [ ] Outcome-to-rating mapping tested for all four cases (first try / after hint / after attempts / failed)
+- [ ] Unit tested by simulating multi-step review sequences
+
+---
+
+## Phase 12: Review Session Manager
+
+**User stories**: 20, 21, 23
+
+### What to build
+
+Build the daily review queue for a user: fetch cards due today from FSRS Engine, interleave new cards up to the daily new-card limit (default 20, configurable per user). Persist queue state so a partially-completed session can be resumed. Expose via `GET /api/review/session`.
+
+### Acceptance criteria
+
+- [ ] Queue contains correct mix of due cards and new cards
+- [ ] Daily new-card limit is respected (not exceeded)
+- [ ] Partially-completed session can be resumed (queue state persisted)
+- [ ] `GET /api/review/session` returns the queue in the correct shape
+- [ ] Unit tested — limit enforcement, queue composition, resumability
+
+---
+
+## Phase 13: Interactive Board — Core Move Validation
+
+**User stories**: 13, 14, 15
+
+### What to build
+
+A React component that renders a chess position from a FEN string using `react-chessboard` and `chess.js`. Accepts `fen` and `correctMove` as props. When the user makes a move on the board, validates it against `correctMove` and calls an `onResult` callback with `'correct'` or `'incorrect'`.
+
+### Acceptance criteria
+
+- [ ] Board renders the correct position from a FEN prop
+- [ ] Correct move triggers `onResult('correct')`
+- [ ] Incorrect move triggers `onResult('incorrect')`
+- [ ] Illegal moves (per chess rules) are rejected without triggering `onResult`
+- [ ] Tested with React Testing Library — all result branches covered
+
+---
+
+## Phase 14: Interactive Board — Hint + Multi-Attempt Flow
+
+**User stories**: 16, 17, 18
+
+### What to build
+
+Extend the board component with attempt state. After a wrong first attempt, highlight the correct piece. Allow up to 3 attempts total. After 3 failed attempts, lock the board and reveal the answer. Emit the attempt outcome (`firstTry` | `afterHint` | `afterAttempts` | `failed`) for FSRS rating mapping.
+
+### Acceptance criteria
+
+- [ ] Wrong first attempt highlights the correct piece (not the correct square)
+- [ ] Second attempt allowed after hint is shown
+- [ ] Third failed attempt locks the board and reveals the correct move
+- [ ] `onResult` emits correct attempt outcome for each path
+- [ ] Board cannot be interacted with after resolution
+- [ ] All state transitions tested with React Testing Library
+
+---
+
+## Phase 15: Review Session Page
+
+**User stories**: 13, 14, 15, 16, 17, 19, 20, 25
+
+### What to build
+
+The core review UI. Fetches queue from `GET /api/review/session`. Presents one board at a time. On resolution, calls `PATCH /api/review/cards/[cardId]` with the outcome, advances to the next card. Displays session progress (cards remaining, current accuracy). When queue is empty, shows a completion state.
+
+### Acceptance criteria
+
+- [ ] Loads and displays the first card from the session queue
+- [ ] Correct/incorrect result is POSTed and card advances
+- [ ] Session progress updates after each card
+- [ ] Completion state shown when queue is empty
+- [ ] Partial session resume works (page reload mid-session continues from correct position)
+- [ ] Responsive and usable on desktop
+
+---
+
+## Phase 16: Sync Status UI
+
+**User stories**: 4, 24
+
+### What to build
+
+A UI element (header or settings page) showing last sync time, games processed, cards created, and error state sourced from `GET /api/sync/status`. A "Sync Now" button that calls `POST /api/sync?mode=incremental` and shows a loading state while the sync runs.
+
+### Acceptance criteria
+
+- [ ] Sync status displays last sync time, game count, card count
+- [ ] Error state is visible when the last sync failed
+- [ ] "Sync Now" triggers incremental sync and shows loading indicator
+- [ ] Status refreshes automatically after sync completes
+- [ ] Tested — button triggers correct API call, status updates on response
+
+---
+
+## Phase 17: Auth — Signup + Login
+
+**User stories**: 22
+
+### What to build
+
+Supabase Auth with email/password. Signup and login pages. Session cookies set on successful auth. All app routes redirect unauthenticated users to login. Logout clears session.
+
+### Acceptance criteria
+
+- [ ] User can sign up with email + password
+- [ ] User can log in and is redirected to the review session
+- [ ] Unauthenticated requests to protected routes redirect to login
+- [ ] Logout clears session and redirects to login
+- [ ] Auth state persists across page refreshes
+
+---
+
+## Phase 18: Auth — User Scoping + RLS
+
+**User stories**: 1, 22, 23
+
+### What to build
+
+Add `user_id` to all tables. Enable Supabase Row Level Security policies so users can only read and write their own rows. Store Chess.com username per user (in `users` table). Sync pipeline uses the authenticated user's configured username. All API routes reject requests from unauthenticated users.
+
+### Acceptance criteria
+
+- [ ] RLS policies in place on all tables — no cross-user data leakage
+- [ ] Chess.com username stored per user and used in sync pipeline
+- [ ] Two separate test accounts have fully isolated card decks and review history
+- [ ] All API routes return 401 for unauthenticated requests
+- [ ] Integration tested — user A cannot read or write user B's rows
