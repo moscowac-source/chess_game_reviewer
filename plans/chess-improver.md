@@ -204,11 +204,11 @@ Takes classified positions from the Analyzer and writes cards to the `cards` tab
 
 ### Acceptance criteria
 
-- [ ] Every sync run writes a `sync_log` row on start and updates it on completion
-- [ ] `GET /api/sync/status` returns the latest sync log
-- [ ] Vercel Cron config present and targeting the correct route + mode
-- [ ] Error state correctly logged when sync partially or fully fails
-- [ ] Integration tested — sync run produces expected log entry
+- [x] Every sync run writes a `sync_log` row on start and updates it on completion
+- [x] `GET /api/sync/status` returns the latest sync log
+- [x] Vercel Cron config present and targeting the correct route + mode
+- [x] Error state correctly logged when sync partially or fully fails
+- [x] Integration tested — sync run produces expected log entry
 
 ---
 

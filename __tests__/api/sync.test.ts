@@ -3,6 +3,7 @@
  */
 
 import { POST } from '@/app/api/sync/route'
+import type { SyncResult } from '@/lib/sync-orchestrator'
 
 // ---------------------------------------------------------------------------
 // Shared fixture data
@@ -32,21 +33,35 @@ function makeGamesFetcher(pgns: string[]) {
 function makeMockDb(existingFens: string[] = []) {
   const insertedRows: Record<string, unknown>[] = []
   const db = {
-    from: (_table: string) => ({
-      select: (_cols: string) => ({
-        in: (_col: string, vals: string[]) =>
-          Promise.resolve({
-            data: existingFens
-              .filter((f) => vals.includes(f))
-              .map((fen) => ({ fen })),
-            error: null,
+    from: (table: string) => {
+      if (table === 'sync_log') {
+        return {
+          insert: (_row: Record<string, unknown>) => ({
+            select: (_cols: string) => ({
+              single: () => Promise.resolve({ data: { id: 'mock-log-id' }, error: null }),
+            }),
           }),
-      }),
-      insert: (rows: Record<string, unknown>[]) => {
-        insertedRows.push(...rows)
-        return Promise.resolve({ data: rows, error: null })
-      },
-    }),
+          update: (_updates: Record<string, unknown>) => ({
+            eq: (_col: string, _val: string) => Promise.resolve({ data: null, error: null }),
+          }),
+        }
+      }
+      return {
+        select: (_cols: string) => ({
+          in: (_col: string, vals: string[]) =>
+            Promise.resolve({
+              data: existingFens
+                .filter((f) => vals.includes(f))
+                .map((fen) => ({ fen })),
+              error: null,
+            }),
+        }),
+        insert: (rows: Record<string, unknown>[]) => {
+          insertedRows.push(...rows)
+          return Promise.resolve({ data: rows, error: null })
+        },
+      }
+    },
   }
   return { db, insertedRows }
 }
@@ -308,5 +323,64 @@ describe('POST /api/sync — integration', () => {
     // No new cards created — all FENs were already in the DB
     expect(rows2).toHaveLength(0)
     expect(body2.cardsCreated).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Phase 10: Sync log writing
+// ---------------------------------------------------------------------------
+describe('POST /api/sync — sync logging', () => {
+  // Cycle 1 (tracer bullet): logStart and logComplete are called on a successful sync
+  it('calls logStart with the mode and logComplete with the result', async () => {
+    const { db } = makeMockDb()
+    let startedMode: string | undefined
+    let completedResult: SyncResult | undefined
+
+    const syncLogger = {
+      logStart: async (mode: string) => {
+        startedMode = mode
+        return 'log-id-1'
+      },
+      logComplete: async (_id: string, result: SyncResult) => {
+        completedResult = result
+      },
+    }
+
+    await POST(makeRequest('incremental'), {
+      gamesFetcher: makeGamesFetcher([FIXTURE_PGN]),
+      db: db as never,
+      engineFactory: makeNoOpEngineFactory(),
+      syncLogger,
+    })
+
+    expect(startedMode).toBe('incremental')
+    expect(completedResult).toBeDefined()
+    expect(typeof completedResult!.gamesProcessed).toBe('number')
+    expect(typeof completedResult!.cardsCreated).toBe('number')
+  })
+
+  // Cycle 2: error state is captured in logComplete when a game fails
+  it('passes error details to logComplete when a game fails during sync', async () => {
+    const { db } = makeMockDb()
+    let completedResult: SyncResult | undefined
+
+    const syncLogger = {
+      logStart: async (_mode: string) => 'log-id-2',
+      logComplete: async (_id: string, result: SyncResult) => {
+        completedResult = result
+      },
+    }
+
+    await POST(makeRequest('incremental'), {
+      gamesFetcher: makeGamesFetcher(['not a valid pgn @@@@', FIXTURE_PGN]),
+      db: db as never,
+      engineFactory: makeNoOpEngineFactory(),
+      syncLogger,
+    })
+
+    expect(completedResult).toBeDefined()
+    expect(Array.isArray(completedResult!.errors)).toBe(true)
+    expect((completedResult!.errors as string[]).length).toBeGreaterThan(0)
+    expect(completedResult!.gamesProcessed).toBe(1)
   })
 })
