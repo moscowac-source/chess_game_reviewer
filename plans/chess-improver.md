@@ -249,7 +249,34 @@ Build the daily review queue for a user: fetch cards due today from FSRS Engine,
 
 ---
 
-## Phase 13: Interactive Board — Core Move Validation
+## Phase 13: UI Design
+
+**User stories**: 13, 14, 15, 16, 17, 19, 20, 24, 25
+
+### What to build
+
+Establish the visual design of the application before any UI code is written. The Stitch mockup file (`designs/ui-mockup.stitch`) is the canonical design reference for all frontend phases (14–19). This phase produces no production code — it produces a spec.
+
+Review the mockup and document the following so all UI phases have a shared reference:
+- Screen inventory (home/mode selection, review session, session completion, sync status)
+- Component breakdown per screen (board, progress bar, mode cards, hint states, etc.)
+- Color palette, typography, and spacing decisions
+- Interaction states (idle, hint shown, correct, incorrect, locked)
+
+**Design file**: `designs/ui-mockup.stitch` — add this file to the repo before starting this phase.
+
+### Acceptance criteria
+
+- [ ] `designs/ui-mockup.stitch` checked into the repo
+- [ ] Screen inventory documented (all screens identified from the mockup)
+- [ ] Component list per screen documented
+- [ ] Color palette and typography noted (hex values or Tailwind token names)
+- [ ] Interaction states for the review board documented (all states from the hint/attempt flow)
+- [ ] Design notes committed to `designs/DESIGN.md` for reference during implementation
+
+---
+
+## Phase 14: Interactive Board — Core Move Validation
 
 **User stories**: 13, 14, 15
 
@@ -267,7 +294,7 @@ A React component that renders a chess position from a FEN string using `react-c
 
 ---
 
-## Phase 14: Interactive Board — Hint + Multi-Attempt Flow
+## Phase 15: Interactive Board — Hint + Multi-Attempt Flow
 
 **User stories**: 16, 17, 18
 
@@ -286,7 +313,7 @@ Extend the board component with attempt state. After a wrong first attempt, high
 
 ---
 
-## Phase 15: Review Session Page
+## Phase 16: Review Session Page
 
 **User stories**: 13, 14, 15, 16, 17, 19, 20, 25
 
@@ -305,7 +332,44 @@ The core review UI. Fetches queue from `GET /api/review/session`. Presents one b
 
 ---
 
-## Phase 16: Sync Status UI
+## Phase 17: Quiz Modes — Filtered Sessions
+
+**User stories**: TBD
+
+### What to build
+
+Add three focused quiz modes alongside the default daily review. Each mode filters the card pool before applying FSRS due-date scheduling — so you're seeing the due cards within that filter, not every card ever created.
+
+**Modes:**
+- **Recent Games** — cards generated from games played in the last 7 days. Good for reviewing a recent session while it's fresh.
+- **Mistakes to Master** — cards with classification `blunder` or `mistake` only. Drills the positions where you went wrong and why.
+- **Back to Brilliancies** — cards with classification `great` or `brilliant` only. Revisits positions where you found the best move, reinforcing pattern recognition for strong play.
+
+**API change**: extend `GET /api/review/session` with an optional `mode` query parameter:
+```
+mode: 'standard' | 'recent' | 'mistakes' | 'brilliancies'
+```
+Default is `'standard'` (existing behavior, unchanged).
+
+**UI**: a mode selection home screen shown before a session starts. Displays the four modes as cards — each showing the mode name, a short description, and the count of due cards in that mode. Tapping a mode starts the filtered session.
+
+**Design decision**: all modes use FSRS scheduling. The filter narrows *which* cards are eligible; FSRS determines *which eligible cards* are shown first. This keeps spaced repetition working correctly within each mode.
+
+### Acceptance criteria
+
+- [ ] `GET /api/review/session?mode=recent` returns only cards from games played in the last 7 days
+- [ ] `GET /api/review/session?mode=mistakes` returns only cards with classification `blunder` or `mistake`
+- [ ] `GET /api/review/session?mode=brilliancies` returns only cards with classification `great` or `brilliant`
+- [ ] `mode=standard` (default) behaves identically to the existing session endpoint
+- [ ] Each mode still applies FSRS due-date filtering within its card pool
+- [ ] Mode selection home screen renders the four modes with due-card counts
+- [ ] Selecting a mode starts a session filtered to that mode
+- [ ] API unit tested — all four modes return correct card subsets
+- [ ] UI tested — mode selection renders and routes correctly
+
+---
+
+## Phase 18: Sync Status UI
 
 **User stories**: 4, 24
 
@@ -323,7 +387,7 @@ A UI element (header or settings page) showing last sync time, games processed, 
 
 ---
 
-## Phase 17: Auth — Signup + Login
+## Phase 19: Auth — Signup + Login
 
 **User stories**: 22
 
@@ -341,7 +405,7 @@ Supabase Auth with email/password. Signup and login pages. Session cookies set o
 
 ---
 
-## Phase 18: Auth — User Scoping + RLS
+## Phase 20: Auth — User Scoping + RLS
 
 **User stories**: 1, 22, 23
 
@@ -359,7 +423,7 @@ Add `user_id` to all tables. Enable Supabase Row Level Security policies so user
 
 ---
 
-## Phase 19: Move Explanations (V2 Enhancement)
+## Phase 21: Move Explanations (V2 Enhancement)
 
 **User stories**: TBD
 
