@@ -168,11 +168,11 @@ Takes classified positions from the Analyzer and writes cards to the `cards` tab
 
 ### Acceptance criteria
 
-- [ ] New FEN → new row in `cards` table
-- [ ] Duplicate FEN → no new row created (idempotent)
-- [ ] Different FENs → separate cards, even from the same game
-- [ ] `correct_move` and `classification` correctly populated
-- [ ] Unit tested with sets of classified positions including deliberate duplicates
+- [x] New FEN → new row in `cards` table
+- [x] Duplicate FEN → no new row created (idempotent)
+- [x] Different FENs → separate cards, even from the same game
+- [x] `correct_move` and `classification` correctly populated
+- [x] Unit tested with sets of classified positions including deliberate duplicates
 
 ---
 
