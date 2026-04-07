@@ -130,11 +130,11 @@ Set up server-side Stockfish (via the `stockfish` npm package). Given a sequence
 
 ### Acceptance criteria
 
-- [ ] Stockfish initializes server-side without errors
-- [ ] Returns a CPL delta for each position in a sequence
-- [ ] Engine output correctly parsed into numeric centipawn values
-- [ ] Unit tested with mocked Stockfish output and fixture position sequences
-- [ ] Does not run Stockfish in the browser — server-only guard in place
+- [x] Stockfish initializes server-side without errors
+- [x] Returns a CPL delta for each position in a sequence
+- [x] Engine output correctly parsed into numeric centipawn values
+- [x] Unit tested with mocked Stockfish output and fixture position sequences
+- [x] Does not run Stockfish in the browser — server-only guard in place
 
 ---
 
