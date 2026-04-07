@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Newsreader:ital,wght@0,400;0,600;0,700;1,400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-tint": "#1A237E",
+                    "primary-container": "#E8EAF6",
+                    "surface-variant": "#F5F5F4",
+                    "secondary": "#059669",
+                    "on-secondary-fixed-variant": "#064e3b",
+                    "surface": "#FDFCFB",
+                    "surface-dim": "#F5F3F1",
+                    "on-secondary-fixed": "#022c22",
+                    "surface-container-lowest": "#FFFFFF",
+                    "secondary-fixed-dim": "#10b981",
+                    "outline-variant": "#E0E0E0",
+                    "on-background": "#1C1C1C",
+                    "surface-container": "#F8F7F5",
+                    "on-primary-fixed-variant": "#1A237E",
+                    "primary": "#1A237E",
+                    "on-primary-container": "#1A237E",
+                    "on-surface": "#1C1C1C",
+                    "secondary-container": "#D1FAE5",
+                    "inverse-on-surface": "#FDFCFB",
+                    "surface-bright": "#FFFFFF",
+                    "tertiary-container": "#FEF3C7",
+                    "on-tertiary-container": "#92400E",
+                    "primary-fixed": "#C5CAE9",
+                    "on-surface-variant": "#444444",
+                    "error-container": "#FEE2E2",
+                    "inverse-primary": "#C5CAE9",
+                    "surface-container-highest": "#E7E5E4",
+                    "on-tertiary-fixed": "#451a03",
+                    "tertiary": "#D97706",
+                    "on-error": "#FFFFFF",
+                    "outline": "#757575",
+                    "on-error-container": "#991B1B",
+                    "on-primary-fixed": "#000051",
+                    "on-tertiary-fixed-variant": "#78350f",
+                    "error": "#DC2626",
+                    "surface-container-low": "#FAF9F7",
+                    "surface-container-high": "#F2F1EE",
+                    "on-secondary-container": "#064e3b",
+                    "on-primary": "#FFFFFF",
+                    "background": "#FDFCFB",
+                    "inverse-surface": "#1C1C1C",
+                    "on-secondary": "#FFFFFF",
+                    "secondary-fixed": "#A7F3D0",
+                    "primary-fixed-dim": "#9FA8DA",
+                    "tertiary-fixed": "#FDE68A",
+                    "tertiary-fixed-dim": "#FBBF24",
+                    "on-tertiary": "#FFFFFF"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Newsreader", "serif"],
+                    "body": ["Inter", "sans-serif"],
+                    "label": ["Inter", "sans-serif"]
+            }
+          },
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #FDFCFB;
+            color: #1C1C1C;
+            font-family: 'Inter', sans-serif;
+        }
+        .serif-editorial {
+            font-family: 'Newsreader', serif;
+        }
+    </style>
+</head>
+<body class="overflow-hidden">
+<!-- SideNavBar Shell -->
+<aside class="hidden md:flex flex-col fixed left-0 top-0 h-screen py-8 bg-neutral-50 dark:bg-[#F8F7F5] h-full w-64 border-r border-neutral-200 z-50">
+<div class="px-8 mb-12">
+<span class="font-serif italic text-2xl text-[#1A237E]">The Grandmaster</span>
+<p class="font-sans Inter text-xs uppercase tracking-widest text-neutral-400 mt-1">Scholarly Atelier</p>
+</div>
+<nav class="flex-1 space-y-2">
+<!-- Active Navigation: Dashboard -->
+<a class="flex items-center gap-4 text-[#1A237E] font-bold border-l-2 border-[#1A237E] pl-4 py-2 bg-[#1A237E]/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-sans Inter text-xs uppercase tracking-widest">Dashboard</span>
+</a>
+<a class="flex items-center gap-4 text-neutral-400 hover:text-[#1A237E] transition-colors pl-4 py-2 hover:bg-[#1A237E]/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="font-sans Inter text-xs uppercase tracking-widest">Library</span>
+</a>
+<a class="flex items-center gap-4 text-neutral-400 hover:text-[#1A237E] transition-colors pl-4 py-2 hover:bg-[#1A237E]/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-sans Inter text-xs uppercase tracking-widest">Game History</span>
+</a>
+<a class="flex items-center gap-4 text-neutral-400 hover:text-[#1A237E] transition-colors pl-4 py-2 hover:bg-[#1A237E]/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span class="font-sans Inter text-xs uppercase tracking-widest">Analysis</span>
+</a>
+<a class="flex items-center gap-4 text-neutral-400 hover:text-[#1A237E] transition-colors pl-4 py-2 hover:bg-[#1A237E]/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-sans Inter text-xs uppercase tracking-widest">Settings</span>
+</a>
+</nav>
+<div class="px-6 mt-auto">
+<button class="w-full py-4 px-6 bg-[#1A237E] text-white rounded-xl font-medium shadow-md hover:shadow-lg hover:scale-[0.99] transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">add</span>
+            New Session
+        </button>
+<div class="mt-8 flex items-center gap-3 px-2">
+<img alt="User profile avatar" class="w-10 h-10 rounded-full grayscale hover:grayscale-0 transition-all border border-neutral-200" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAl2JlDlq3kb_hY62S0_7ngEHTAosdwOs0mLvvmTcrN0cdBWY5EBPSAap8DtiQf-a_4FMgeypIphvwQMJObOXul5ahJMVw5CwBRmffiVu-saT2DFHaXhWjBebsH2wCTcGtmkD1fqXHigOwl-nMkPvjZPNb2Rm1rVVBbR1EBXdtm6yt_76cMrJM1a0sjqyUmNNAkGLip41KLtc77KI1-clDbyktjCP2N1RQf6Sk4U2xZ-V-ZD61VwomApbvQ2D7dbW0165lBqgfC1XwH"/>
+<div class="overflow-hidden">
+<p class="text-xs font-bold text-[#1A237E] truncate">Grandmaster Aris</p>
+<p class="text-[10px] text-neutral-400 uppercase tracking-tighter">Pro Member</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:ml-64 min-h-screen bg-surface relative overflow-y-auto">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-12 py-8 bg-surface/80 backdrop-blur-xl sticky top-0 z-40 border-b border-neutral-100">
+<h1 class="font-serif Newsreader text-[#1A237E] text-4xl italic">Performance Dashboard</h1>
+<div class="flex items-center gap-8">
+<div class="relative hidden lg:block">
+<input class="bg-surface-container-low border border-neutral-200 rounded-full px-6 py-2 text-sm w-64 focus:ring-1 focus:ring-primary placeholder-neutral-400 transition-all" placeholder="Search sessions..." type="text"/>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">search</span>
+</div>
+<div class="flex items-center gap-4 text-[#1A237E]">
+<button class="material-symbols-outlined hover:text-secondary transition-colors p-2">timeline</button>
+<button class="material-symbols-outlined hover:text-secondary transition-colors p-2">leaderboard</button>
+</div>
+</div>
+</header>
+<div class="px-12 pb-24">
+<!-- Hero / Welcome Section -->
+<section class="mb-16 mt-8 flex flex-col md:flex-row justify-between items-end gap-8">
+<div class="max-w-2xl">
+<p class="text-tertiary font-sans text-xs uppercase tracking-[0.3em] mb-4">Performance Insights</p>
+<h2 class="font-serif Newsreader text-5xl leading-tight text-[#1A237E]">Growth is the result of <span class="italic text-neutral-400">honest review</span>.</h2>
+<p class="mt-6 text-neutral-600 font-body leading-relaxed">Welcome back, Professor. Your accuracy in the Middlegame has improved by 8% this week. We've identified three key inaccuracies from your last Blitz session for review.</p>
+</div>
+<div class="flex gap-4">
+<div class="text-right">
+<p class="text-xs text-neutral-400 uppercase tracking-widest">Global Performance Rating</p>
+<p class="text-3xl font-serif italic text-secondary">2450 GPR</p>
+</div>
+</div>
+</section>
+<!-- Bento Grid of Focus Areas -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+<!-- Recent Sessions Card -->
+<div class="group bg-surface-container border border-neutral-200 rounded-[2rem] p-8 relative overflow-hidden transition-all duration-500 hover:shadow-xl hover:translate-y-[-4px]">
+<div class="flex justify-between items-start mb-12">
+<div class="p-3 bg-white border border-neutral-100 rounded-xl">
+<span class="material-symbols-outlined text-[#1A237E]" style="font-variation-settings: 'FILL' 1;">history</span>
+</div>
+<span class="text-[10px] uppercase tracking-widest text-neutral-400 px-3 py-1 bg-neutral-100 rounded-full">Last 24 Hours</span>
+</div>
+<h3 class="font-serif text-2xl text-[#1A237E] mb-2">Recent Sessions</h3>
+<p class="text-sm text-neutral-500 mb-8">Reviewing performance across 12 games played today.</p>
+<div class="space-y-4 mb-8">
+<div class="flex justify-between items-end">
+<span class="text-xs text-neutral-400">Win Rate (Today)</span>
+<span class="text-sm font-medium text-secondary">68%</span>
+</div>
+<div class="h-1 bg-neutral-200 w-full rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[68%] transition-all duration-1000"></div>
+</div>
+</div>
+<div class="flex items-center justify-between mt-auto">
+<div class="flex flex-col">
+<span class="text-[10px] text-neutral-400 uppercase tracking-tighter">Avg. Accuracy</span>
+<span class="text-xs font-medium text-on-surface">84.2%</span>
+</div>
+<button class="px-6 py-2.5 bg-neutral-200 hover:bg-[#1A237E] hover:text-white text-[#1A237E] text-xs font-bold uppercase tracking-widest rounded-xl transition-all">View All</button>
+</div>
+</div>
+<!-- Mistakes to Master Card -->
+<div class="group bg-surface-container border border-neutral-200 rounded-[2rem] p-8 relative overflow-hidden transition-all duration-500 hover:shadow-xl hover:translate-y-[-4px]">
+<div class="flex justify-between items-start mb-12">
+<div class="p-3 bg-white border border-neutral-100 rounded-xl">
+<span class="material-symbols-outlined text-error">dangerous</span>
+</div>
+<span class="text-[10px] uppercase tracking-widest text-error px-3 py-1 bg-error-container rounded-full">3 Blunders</span>
+</div>
+<h3 class="font-serif text-2xl text-[#1A237E] mb-2">Mistakes to Master</h3>
+<p class="text-sm text-neutral-500 mb-8">Convert your recent errors into tactical lessons.</p>
+<div class="space-y-4 mb-8">
+<div class="flex justify-between items-end">
+<span class="text-xs text-neutral-400">Rehabilitation Progress</span>
+<span class="text-sm font-medium text-tertiary">1 / 3 Solved</span>
+</div>
+<div class="h-1 bg-neutral-200 w-full rounded-full overflow-hidden">
+<div class="h-full bg-tertiary w-[33%]"></div>
+</div>
+</div>
+<div class="flex items-center justify-between mt-auto">
+<div class="flex flex-col">
+<span class="text-[10px] text-neutral-400 uppercase tracking-tighter">Difficulty</span>
+<span class="text-xs font-medium text-on-surface">Advanced</span>
+</div>
+<button class="px-6 py-2.5 bg-neutral-200 hover:bg-[#1A237E] hover:text-white text-[#1A237E] text-xs font-bold uppercase tracking-widest rounded-xl transition-all">Fix Now</button>
+</div>
+</div>
+<!-- Brilliant Reinforcements Card -->
+<div class="group bg-surface-container border border-neutral-200 rounded-[2rem] p-8 relative overflow-hidden transition-all duration-500 hover:shadow-xl hover:translate-y-[-4px]">
+<div class="flex justify-between items-start mb-12">
+<div class="p-3 bg-white border border-neutral-100 rounded-xl">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<span class="text-[10px] uppercase tracking-widest text-secondary px-3 py-1 bg-secondary-container rounded-full">Brilliant !!</span>
+</div>
+<h3 class="font-serif text-2xl text-[#1A237E] mb-2">Brilliant Reinforcements</h3>
+<p class="text-sm text-neutral-500 mb-8">Solidify the patterns behind your best recent moves.</p>
+<div class="space-y-4 mb-8">
+<div class="flex justify-between items-end">
+<span class="text-xs text-neutral-400">Pattern Retention</span>
+<span class="text-sm font-medium text-secondary">High</span>
+</div>
+<div class="h-1 bg-neutral-200 w-full rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-full"></div>
+</div>
+</div>
+<div class="flex items-center justify-between mt-auto">
+<div class="flex flex-col">
+<span class="text-[10px] text-neutral-400 uppercase tracking-tighter">Recent Wins</span>
+<span class="text-xs font-medium text-on-surface">5 Game Streak</span>
+</div>
+<button class="px-6 py-2.5 bg-neutral-200 hover:bg-[#1A237E] hover:text-white text-[#1A237E] text-xs font-bold uppercase tracking-widest rounded-xl transition-all">Review Hits</button>
+</div>
+</div>
+<!-- Featured Highlight / Game Analysis Section -->
+<div class="lg:col-span-2 bg-[#1A237E]/5 backdrop-blur-md rounded-[2.5rem] p-10 flex flex-col md:flex-row items-center gap-10 border border-[#1A237E]/10">
+<div class="flex-1">
+<h4 class="font-serif text-3xl mb-4 italic text-[#1A237E]">Brilliant Finish</h4>
+<p class="text-neutral-600 leading-relaxed mb-8">You found the winning line in a complex endgame vs. "Stockfish_8" (2350). The Greek Gift sacrifice led to a forced mate in 9 moves.</p>
+<div class="flex gap-4">
+<button class="bg-[#1A237E] text-white px-8 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:scale-105 transition-transform shadow-lg shadow-[#1A237E]/20">Replay Sequence</button>
+<button class="bg-white border border-neutral-200 text-[#1A237E] px-8 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-neutral-50 transition-colors">Annotate</button>
+</div>
+</div>
+<div class="w-full md:w-64 aspect-square bg-white border border-neutral-200 rounded-2xl flex items-center justify-center relative overflow-hidden group shadow-sm">
+<img alt="Recent winning position" class="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-110 transition-all duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdIGKRSp0nG-s1cTx0CxBLc5JcZQX4YQqJzSYHo0uuQ3VcKkats6BydfEW1nZg5tB_HoltIbV47mNC3HPAE4_eyzsOXNDvzdTo7qfzwTyAUcXLbfXQCbO9PUFlaJClqCP2CPn_MsWImy8ie--7PZ5K0tw3TmjZA9RlMZ7z93DAk0oQ8yTwGM04wiqfI-I8cLEQZNiP0tY_1Hp9L5md6XJiGLfSihV49giiyGKFv57Jl8MeLhXgqOeWR8e-V8rNZTUCU1MnoJWqhTxl"/>
+<div class="absolute inset-0 bg-gradient-to-t from-[#1A237E]/20 to-transparent opacity-40"></div>
+<span class="relative z-10 material-symbols-outlined text-6xl text-[#1A237E]">sports_esports</span>
+</div>
+</div>
+<!-- Quick Stats / Analytical Insights -->
+<div class="bg-surface-container border border-neutral-200 rounded-[2rem] p-8">
+<h5 class="font-serif italic text-xl mb-6 text-[#1A237E]">Performance Trends</h5>
+<ul class="space-y-6">
+<li class="flex items-start gap-4">
+<div class="w-1.5 h-1.5 rounded-full bg-secondary mt-2"></div>
+<div>
+<p class="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-1">Strength</p>
+<p class="text-sm text-neutral-600 leading-snug">Calculative speed in time scrambles has improved by 12%.</p>
+</div>
+</li>
+<li class="flex items-start gap-4">
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary mt-2"></div>
+<div>
+<p class="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-1">Focus Area</p>
+<p class="text-sm text-neutral-600 leading-snug">Your defense against 'Gambit' systems remains a slight volatility factor.</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<!-- Bottom Editorial Quote -->
+<div class="mt-24 max-w-3xl mx-auto text-center">
+<div class="w-12 h-1 bg-tertiary mx-auto mb-10"></div>
+<blockquote class="font-serif text-3xl italic text-neutral-400 leading-relaxed">
+                "Winning isn't everything, but wanting to win is."
+            </blockquote>
+<cite class="block mt-6 font-sans text-xs uppercase tracking-[0.4em] text-neutral-400">— Vince Lombardi (adapted for the board)</cite>
+</div>
+</div>
+</main>
+<!-- Mobile Nav Bar (Visible only on small screens) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-lg px-6 py-4 flex justify-between items-center z-50 border-t border-neutral-200">
+<button class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">analytics</button>
+<button class="material-symbols-outlined text-neutral-400">history</button>
+<div class="p-3 bg-[#1A237E] text-white rounded-full -translate-y-6 shadow-2xl">
+<span class="material-symbols-outlined">add</span>
+</div>
+<button class="material-symbols-outlined text-neutral-400">psychology</button>
+<button class="material-symbols-outlined text-neutral-400">settings</button>
+</nav>
+</body></html>

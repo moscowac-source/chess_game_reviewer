@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+                  "surface-tint": "#1A237E",
+                  "primary-container": "#E8EAF6",
+                  "surface-variant": "#F5F5F5",
+                  "secondary": "#2E7D32",
+                  "on-secondary-fixed-variant": "#1B5E20",
+                  "surface": "#FDFCFB",
+                  "surface-dim": "#F5F3F0",
+                  "on-secondary-fixed": "#00210c",
+                  "surface-container-lowest": "#FFFFFF",
+                  "secondary-fixed-dim": "#4CAF50",
+                  "outline-variant": "#E0E0E0",
+                  "on-background": "#212121",
+                  "surface-container": "#F9F8F6",
+                  "on-primary-fixed-variant": "#1A237E",
+                  "primary": "#1A237E",
+                  "on-primary-container": "#1A237E",
+                  "on-surface": "#333333",
+                  "secondary-container": "#C8E6C9",
+                  "inverse-on-surface": "#FDFCFB",
+                  "surface-bright": "#FFFFFF",
+                  "tertiary-container": "#FFF9C4",
+                  "on-tertiary-container": "#F57F17",
+                  "primary-fixed": "#D1E4FB",
+                  "on-surface-variant": "#666666",
+                  "error-container": "#FFEBEE",
+                  "inverse-primary": "#9FA8DA",
+                  "surface-container-highest": "#EAE8E4",
+                  "on-tertiary-fixed": "#F57F17",
+                  "tertiary": "#F57F17",
+                  "on-error": "#B71C1C",
+                  "outline": "#BDBDBD",
+                  "on-error-container": "#B71C1C",
+                  "on-primary-fixed": "#1A237E",
+                  "on-tertiary-fixed-variant": "#F57F17",
+                  "error": "#D32F2F",
+                  "surface-container-low": "#FAF9F7",
+                  "surface-container-high": "#F2F0ED",
+                  "on-secondary-container": "#1B5E20",
+                  "on-primary": "#FFFFFF",
+                  "background": "#FDFCFB",
+                  "inverse-surface": "#333333",
+                  "on-secondary": "#FFFFFF",
+                  "secondary-fixed": "#A5D6A7",
+                  "primary-fixed-dim": "#1A237E",
+                  "tertiary-fixed": "#FFF59D",
+                  "tertiary-fixed-dim": "#FBC02D",
+                  "on-tertiary": "#FFFFFF"
+          },
+          "borderRadius": {
+                  "DEFAULT": "0.25rem",
+                  "lg": "0.5rem",
+                  "xl": "0.75rem",
+                  "full": "9999px"
+          },
+          "fontFamily": {
+                  "headline": ["Newsreader", "serif"],
+                  "body": ["Inter", "sans-serif"],
+                  "label": ["Inter", "sans-serif"]
+          }
+        },
+      },
+    }
+  </script>
+<style>.material-symbols-outlined {
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24
+    }
+.chess-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr)
+    }
+.glass-panel {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px)
+    }
+.move-arrow {
+    position: absolute;
+    pointer-events: none;
+    z-index: 10;
+    background: rgba(46, 125, 50, 0.6);
+    height: 8px;
+    border-radius: 4px;
+    transform-origin: left center
+    }
+.paper-texture {
+    background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuA8eNEnpBX_XzWjwROBRbp9IwC3HpZeV0r0XF8lrPw5lO9vsBwAfK6wmAft0Wq3lrUjzcppvhCpBW7SaKqaZB6GyAvYb8Zhwq5xfNLmoBidQ64x3tbjWP_L0nQvLjAJtTgIR85WLZNheiOpAx7gNyEFVuOeFeuDLMUetPptXqeF7GJqoW-qqLwPD4XNVJgs20CgQEgmAv8Kwhgh-kbMvkhF-V3oNUH68M06y3Jxt1KTxOOMt_c4UgMgwQRxo3stO5UJHkpcp468vcd4)
+    }</style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary/10 min-h-screen flex flex-col md:flex-row paper-texture">
+<!-- Side Navigation Shell -->
+<aside class="bg-white/80 backdrop-blur-md h-full w-64 border-r border-outline-variant hidden md:flex flex-col fixed left-0 top-0 h-screen py-8 z-50">
+<div class="px-6 mb-10">
+<h1 class="font-serif italic text-2xl text-primary">The Grandmaster</h1>
+<p class="font-sans text-[10px] uppercase tracking-widest text-neutral-400 mt-1">Scholarly Atelier</p>
+</div>
+<nav class="flex-1 space-y-2">
+<a class="flex items-center text-neutral-400 hover:text-primary transition-colors pl-4 py-3 group hover:bg-primary-container/30" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="menu_book">menu_book</span>
+<span class="text-xs uppercase tracking-widest font-semibold">Library</span>
+</a>
+<a class="flex items-center text-secondary font-bold border-l-2 border-secondary pl-4 py-3 group bg-secondary-container/10" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="school">school</span>
+<span class="text-xs uppercase tracking-widest">Study</span>
+</a>
+<a class="flex items-center text-neutral-400 hover:text-primary transition-colors pl-4 py-3 group hover:bg-primary-container/30" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="psychology">psychology</span>
+<span class="text-xs uppercase tracking-widest font-semibold">Analysis</span>
+</a>
+<a class="flex items-center text-neutral-400 hover:text-primary transition-colors pl-4 py-3 group hover:bg-primary-container/30" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="upload_file">upload_file</span>
+<span class="text-xs uppercase tracking-widest font-semibold">Import</span>
+</a>
+<a class="flex items-center text-neutral-400 hover:text-primary transition-colors pl-4 py-3 group hover:bg-primary-container/30" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="settings">settings</span>
+<span class="text-xs uppercase tracking-widest font-semibold">Settings</span>
+</a>
+</nav>
+<div class="mt-auto px-6 pt-6">
+<div class="flex items-center gap-3 p-3 bg-surface-container-low rounded-xl border border-outline-variant">
+<img alt="User profile avatar" class="w-10 h-10 rounded-full object-cover" data-alt="Close-up portrait of a thoughtful man in a library setting with warm, ambient lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAoKaMT2ml-1dNXHM9ITJxsAeUpkuOY1AYiOq98_DdhsMBrItQQRKee3LA4ZTuwLsi6kgY_7IKGFHj2SvUTTMnK6LLT6Bn4fa7k6Kroix3lAQpqfF7pdOuiO5TpTktYxSi-_7fQgcxVf0cspFYB-VrtEL33sS6ImTX960dQqUQjHgq8IslHmihPgqiPjUxFMpDRhwFYoDFzBFwjoYNgYAdU99pGS6EScmshbzcBeCNVYa0LmGoOFUzsYPUhkJfL_Gk8ZpQNxt83lP9a"/>
+<div>
+<p class="text-xs font-bold text-primary">The Grandmaster</p>
+<p class="text-[10px] text-neutral-500">Mikhail Botvinnik</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="flex-1 md:ml-64 flex flex-col min-h-screen overflow-x-hidden">
+<!-- Top Bar Shell -->
+<header class="bg-transparent backdrop-blur-xl flex justify-between items-center w-full px-12 py-6 max-w-full ml-auto z-40 border-b border-outline-variant/30">
+<div>
+<h2 class="font-serif text-primary text-xl">The Grandmaster Editorial</h2>
+</div>
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-6">
+<button class="text-neutral-400 hover:text-primary transition-colors"><span class="material-symbols-outlined" data-icon="history_edu">history_edu</span></button>
+<button class="text-neutral-400 hover:text-primary transition-colors"><span class="material-symbols-outlined" data-icon="account_balance">account_balance</span></button>
+</div>
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm" data-icon="search">search</span>
+<input class="bg-surface-container-low border border-outline-variant rounded-full pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary w-48 transition-all" placeholder="Search opening..." type="text"/>
+</div>
+</div>
+</header>
+<!-- Post-Move Content -->
+<div class="flex-1 flex flex-col lg:flex-row gap-12 px-12 py-8 relative">
+<!-- Evaluation Bar -->
+<div class="absolute left-4 top-1/2 -translate-y-1/2 h-[500px] w-2 bg-surface-container-highest rounded-full overflow-hidden flex flex-col border border-outline-variant">
+<div class="bg-white w-full transition-all duration-700 shadow-sm" style="height: 65%;"></div>
+<div class="flex-1 w-full bg-neutral-800"></div>
+<div class="absolute top-1/2 -translate-y-1/2 -left-12 text-[10px] font-bold text-tertiary tracking-tighter w-10 text-right">+1.5</div>
+</div>
+<!-- Chess Board Section -->
+<div class="flex-1 flex justify-center items-start lg:pl-4">
+<div class="relative w-full max-w-[560px] aspect-square shadow-xl rounded-md overflow-hidden border-8 border-surface-container-highest">
+<div class="chess-grid w-full h-full">
+<!-- 8x8 Board -->
+<div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div>
+<div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div>
+<div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div>
+<div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div>
+<div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div>
+<div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div>
+<div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div>
+<div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div><div class="bg-[#8CA2AD]"></div><div class="bg-[#DEE3E6]"></div>
+</div>
+<!-- Pieces Layer -->
+<div class="absolute inset-0 grid grid-cols-8 grid-rows-8 pointer-events-none p-1">
+<div class="col-start-4 row-start-2 flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-neutral-800" data-icon="chess_pawn" style="font-variation-settings: 'FILL' 1;">chess_pawn</span>
+</div>
+<div class="col-start-6 row-start-6 flex items-center justify-center bg-secondary/10 rounded-sm">
+<span class="material-symbols-outlined text-4xl text-neutral-900" data-icon="chess_knight" style="font-variation-settings: 'FILL' 1;">chess_knight</span>
+</div>
+<div class="absolute top-[81%] left-[62%] w-[80px] h-[8px] bg-secondary/40 rounded-full rotate-[-45deg] origin-left after:content-[''] after:absolute after:right-0 after:top-1/2 after:-translate-y-1/2 after:border-y-[8px] after:border-y-transparent after:border-l-[12px] after:border-l-secondary/60"></div>
+</div>
+</div>
+</div>
+<!-- Editorial Explanation Section -->
+<div class="w-full lg:w-[420px] flex flex-col space-y-8">
+<header>
+<div class="flex items-center gap-2 mb-2">
+<span class="text-xs font-label uppercase tracking-widest text-secondary font-bold">Original Game Context</span>
+<div class="h-[1px] flex-1 bg-outline-variant"></div>
+</div>
+<h3 class="font-serif text-3xl text-primary">Knight to f3</h3>
+<div class="mt-4 p-4 rounded-lg bg-surface-container-low border border-outline-variant">
+<p class="text-[10px] text-neutral-500 uppercase tracking-widest font-label mb-1">Missed Opportunity</p>
+<p class="text-sm text-on-surface leading-relaxed">
+              In your game vs <span class="text-primary font-bold">Magnus Carlsen</span>, you played <span class="text-error font-bold">a6</span>. The Engine found a <span class="text-secondary font-bold italic">Brilliant</span> alternative: <span class="text-secondary font-bold">Nf3</span>.
+            </p>
+</div>
+</header>
+<section class="space-y-6">
+<div class="p-6 rounded-xl bg-white border-l-4 border-tertiary shadow-sm">
+<p class="font-serif italic text-lg leading-relaxed text-on-surface">
+              "Tactics flow from a superior position. By placing the Knight on f3, you exert immediate pressure on the e5 pawn while developing toward the center. This is not merely a move; it is the silent preparation for the coming storm."
+            </p>
+<p class="mt-4 text-[10px] font-label text-neutral-400 uppercase tracking-widest">— Engine Synthesis v4.2</p>
+</div>
+<div class="space-y-4">
+<h4 class="text-xs font-label uppercase tracking-widest text-primary font-bold">Strategic Rationale</h4>
+<ul class="space-y-4">
+<li class="flex items-start gap-4">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="center_focus_weak">center_focus_weak</span>
+</div>
+<div>
+<p class="text-sm font-semibold text-primary">Center Control</p>
+<p class="text-xs text-neutral-600 leading-snug">Secures the d4 square for future pawn advances.</p>
+</div>
+</li>
+<li class="flex items-start gap-4">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="castle">castle</span>
+</div>
+<div>
+<p class="text-sm font-semibold text-primary">Kingside Development</p>
+<p class="text-xs text-neutral-600 leading-snug">Clears the path for an early castle, ensuring King safety.</p>
+</div>
+</li>
+</ul>
+</div>
+</section>
+<!-- Flashcard Stats -->
+<div class="mt-auto pt-8 border-t border-outline-variant flex justify-between items-end">
+<div>
+<p class="text-[10px] font-label uppercase tracking-widest text-neutral-500">Last Seen</p>
+<p class="text-sm font-medium text-primary">4 days ago</p>
+</div>
+<div class="text-right">
+<p class="text-[10px] font-label uppercase tracking-widest text-neutral-500">Success Rate</p>
+<p class="text-sm font-medium text-secondary">82%</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Anki-style Difficulty Buttons -->
+<footer class="px-12 pb-12 mt-auto">
+<div class="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4">
+<!-- Again -->
+<button class="group relative overflow-hidden bg-white border border-outline-variant hover:border-error/50 hover:bg-error-container p-6 rounded-2xl transition-all duration-300 flex flex-col items-center text-center shadow-sm">
+<span class="text-xs font-label uppercase tracking-widest text-neutral-400 mb-1 group-hover:text-error transition-colors">Again</span>
+<span class="font-serif text-xl mb-1 text-primary">Forgot</span>
+<span class="text-[10px] text-error font-bold">&lt; 1 min</span>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-error/20"></div>
+</button>
+<!-- Hard -->
+<button class="group relative overflow-hidden bg-white border border-outline-variant hover:border-tertiary/50 hover:bg-tertiary-container p-6 rounded-2xl transition-all duration-300 flex flex-col items-center text-center shadow-sm">
+<span class="text-xs font-label uppercase tracking-widest text-neutral-400 mb-1 group-hover:text-tertiary transition-colors">Hard</span>
+<span class="font-serif text-xl mb-1 text-primary">Struggled</span>
+<span class="text-[10px] text-tertiary font-bold">2 days</span>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-tertiary/20"></div>
+</button>
+<!-- Good -->
+<button class="group relative overflow-hidden bg-white border border-outline-variant hover:border-secondary/50 hover:bg-secondary-container p-6 rounded-2xl transition-all duration-300 flex flex-col items-center text-center shadow-sm">
+<span class="text-xs font-label uppercase tracking-widest text-neutral-400 mb-1 group-hover:text-secondary transition-colors">Good</span>
+<span class="font-serif text-xl mb-1 text-primary">Recall</span>
+<span class="text-[10px] text-secondary font-bold">4 days</span>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-secondary/20"></div>
+</button>
+<!-- Easy -->
+<button class="group relative overflow-hidden bg-white border border-outline-variant hover:border-primary/50 hover:bg-primary-container p-6 rounded-2xl transition-all duration-300 flex flex-col items-center text-center shadow-sm">
+<span class="text-xs font-label uppercase tracking-widest text-neutral-400 mb-1 group-hover:text-primary transition-colors">Easy</span>
+<span class="font-serif text-xl mb-1 text-primary">Obvious</span>
+<span class="text-[10px] text-primary font-bold">7 days</span>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-primary/20"></div>
+</button>
+</div>
+</footer>
+</main>
+<!-- Image/Content Metadata (Hidden) -->
+<div class="hidden">
+<img data-alt="Subtle light cream paper texture with elegant fiber details and soft depth" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSZ56Rxj_n2Hv0TBXGkij3yxnATkoH_syfV23R1ggLL5HBF1QBvWZZpF7xShVpbG8MpraWkxVcjKnDweBA0AVD1phRzFjRMsKGf0MZhLz5ucKvS6_CfYK0GhEyRfxS9LxjM6by0g2BMP1OwXszawZmV__w0Secl86xZWHbybvmbFHx2ELj7-jFoToxj3B2COeFK5ZXOisrjw0deeqJSmbR26wWuMsFpGi21JA0m_9431HDTkp25_NmI1hCVDt3RFaKWvTVGSiO_JBc"/>
+<img data-alt="Historical portrait of a legendary chess grandmaster in black and white with dramatic high contrast lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCOmoh2SewDVqfxby3mjf5w-b6HxDlxlCzSGS-3txMkSAjWKYBLGcnR_iC24shcts1NL2NlPHdbU51X_0PjtI9DvzSh3oH3HZmZ5GMd8dldLoSsCockrssMRRyYLf4aOCwVv7JOss_gxXPLz-z9VDUPeEX2QFTzjVVCzg6dAM90NzECZRmXISGaj_2u-iy-Wx2QAo0RGn7VtJFC2cJsyYH_QOqAx74UeYJYEkKd2pyMNCKQBHKy5R5-IH8s3Q0GjKHDGTTUtZqWrIW-"/>
+</div>
+</body></html>

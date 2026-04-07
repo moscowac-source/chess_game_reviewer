@@ -343,7 +343,7 @@ Add three focused quiz modes alongside the default daily review. Each mode filte
 **Modes:**
 - **Recent Games** — cards generated from games played in the last 7 days. Good for reviewing a recent session while it's fresh.
 - **Mistakes to Master** — cards with classification `blunder` or `mistake` only. Drills the positions where you went wrong and why.
-- **Brilliant Reinforcements** — cards with classification `great` or `brilliant` only. Revisits positions where you found the best move, reinforcing pattern recognition for strong play.
+- **Back to Brilliancies** — cards with classification `great` or `brilliant` only. Revisits positions where you found the best move, reinforcing pattern recognition for strong play.
 
 **API change**: extend `GET /api/review/session` with an optional `mode` query parameter:
 ```
@@ -359,7 +359,7 @@ Default is `'standard'` (existing behavior, unchanged).
 
 - [ ] `GET /api/review/session?mode=recent` returns only cards from games played in the last 7 days
 - [ ] `GET /api/review/session?mode=mistakes` returns only cards with classification `blunder` or `mistake`
-- [ ] `GET /api/review/session?mode=brilliancies` returns only cards with classification `great` or `brilliant` (UI label: "Brilliant Reinforcements")
+- [ ] `GET /api/review/session?mode=brilliancies` returns only cards with classification `great` or `brilliant` (UI label: "Back to Brilliancies")
 - [ ] `mode=standard` (default) behaves identically to the existing session endpoint
 - [ ] Each mode still applies FSRS due-date filtering within its card pool
 - [ ] Mode selection home screen renders the four modes with due-card counts

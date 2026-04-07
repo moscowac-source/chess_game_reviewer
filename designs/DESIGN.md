@@ -1,6 +1,7 @@
 # Design System: The Grandmaster / Scholarly Atelier
 
-> Source: Stitch mockup. Screenshots in this directory are the canonical visual reference.
+> Source: Stitch mockup (`dashboard.html`, `study.html`, `dashboard.png`, `study.png`).
+> The mockup defines **design language and visual structure** — colors, typography, spacing, component style. Specific copy, feature names, and functionality are illustrative and may differ from the built product.
 > Brand name in mockup: **The Grandmaster — Scholarly Atelier**
 
 ---
@@ -19,22 +20,29 @@ To achieve this "Grandmaster Editorial" feel, the system prioritizes **intention
 
 The palette is rooted in a "paper-first" logic. We avoid the clinical coldness of pure white (#FFFFFF) in favor of a sophisticated, warm off-white that mimics high-grade archival paper.
 
+Exact values from the Tailwind config in `dashboard.html` / `study.html`:
+
 | Token | Hex | Usage |
 |---|---|---|
-| `background` | `#faf9f8` | Canvas / page background |
-| `surface_container_low` | `#f4f3f2` | Large secondary regions (sidebar, move list) |
-| `surface_container_lowest` | `#ffffff` | Cards lifted off containers |
-| `surface_container_high` | `#e9e8e7` | Hover state (tonal, not shadow) |
-| `surface_container_highest` | `#e3e2e1` | Light chessboard squares |
-| `primary` | `#000666` | Deep ink blue — CTAs, dark board squares |
-| `primary_container` | `#1a237e` | CTA gradient end, dark board squares |
-| `on_primary` | `#ffffff` | Text on primary buttons |
-| `on_background` | `#1a1c1c` | Body text (never pure black) |
-| `secondary` | `#1b6d24` | Brilliant move highlights (30% opacity) |
-| `secondary_container` | _(muted green)_ | "Book" move chips |
-| `tertiary_fixed` | `#ffdcc0` | Inaccuracy highlights |
-| `tertiary_container` | _(muted orange)_ | Mistake chips |
-| `outline_variant` | `#c6c5d4` | Ghost borders at 15% opacity only |
+| `background` | `#FDFCFB` | Canvas / page background |
+| `surface` | `#FDFCFB` | Surface base |
+| `surface-container` | `#F8F7F5` | Card backgrounds |
+| `surface-container-low` | `#FAF9F7` | Large secondary regions |
+| `surface-container-lowest` | `#FFFFFF` | Cards lifted off containers |
+| `surface-container-high` | `#F2F1EE` | Hover state (tonal, not shadow) |
+| `surface-container-highest` | `#E7E5E4` | Light chessboard squares |
+| `primary` | `#1A237E` | Deep ink blue — CTAs, nav active state |
+| `primary-container` | `#E8EAF6` | Light blue tint backgrounds |
+| `on-primary` | `#FFFFFF` | Text on primary buttons |
+| `on-background` | `#1C1C1C` | Body text (never pure black) |
+| `secondary` | `#059669` | Brilliant/great highlights, GPR, progress bars |
+| `secondary-container` | `#D1FAE5` | Brilliant chip background |
+| `tertiary` | `#D97706` | Mistake/inaccuracy color |
+| `tertiary-container` | `#FEF3C7` | Mistake chip background |
+| `tertiary-fixed` | `#FDE68A` | Inaccuracy board highlights |
+| `error` | `#DC2626` | Blunder color |
+| `error-container` | `#FEE2E2` | Blunder chip background |
+| `outline-variant` | `#E0E0E0` | Ghost borders at 15% opacity only |
 
 ### Rules
 - No 1px solid borders for sectioning — use tonal layering instead ("The No-Line Rule")
@@ -127,7 +135,7 @@ Four equal-width cards across the bottom of the study screen:
 |---|---|---|---|---|---|
 | Recent Sessions | "LAST 24 HOURS" | Recent Sessions | Reviewing performance across N games | Win Rate + Avg Accuracy | VIEW ALL |
 | Mistakes to Master | "3 BLUNDERS" (red badge) | Mistakes to Master | Convert your recent errors into tactical lessons | Rehabilitation Progress (N/N Solved) + Difficulty | FIX NOW |
-| Brilliant Reinforcements | "BRILLIANT !!" (green badge) | Brilliant Reinforcements | Solidify the patterns behind your best recent moves | Pattern Retention + Recent Wins streak | REVIEW HITS |
+| Back to Brilliancies | "BRILLIANT !!" (green badge) | Back to Brilliancies | Solidify the patterns behind your best recent moves | Pattern Retention + Recent Wins streak | REVIEW HITS |
 
 **Featured position card (below mode cards):**
 - Large card spanning ~2/3 width
@@ -195,4 +203,4 @@ Four equal-width cards across the bottom of the study screen:
 - The mode card names in the mockup differ slightly from the plan. Canonical names are:
   - **Recent Sessions** (plan: "Recent Games")
   - **Mistakes to Master** (plan: same)
-  - **Brilliant Reinforcements** (plan: "Back to Brilliancies" → updated to match mockup)
+  - **Back to Brilliancies** (plan: "Back to Brilliancies" → updated to match mockup)
