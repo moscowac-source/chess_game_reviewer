@@ -150,11 +150,11 @@ Apply CPL thresholds to classify each move. Layer on top of Phase 6's CPL output
 
 ### Acceptance criteria
 
-- [ ] Blunder threshold (>200 CPL) correctly applied
-- [ ] Mistake threshold (100–200 CPL) correctly applied
-- [ ] Great/Brilliant correctly identified when move matches engine top choice
-- [ ] Edge cases: CPL exactly at threshold, forced moves, no alternatives
-- [ ] Unit tested — all classification branches covered
+- [x] Blunder threshold (>200 CPL) correctly applied
+- [x] Mistake threshold (100–200 CPL) correctly applied
+- [x] Great/Brilliant correctly identified when move matches engine top choice
+- [x] Edge cases: CPL exactly at threshold, forced moves, no alternatives
+- [x] Unit tested — all classification branches covered
 
 ---
 

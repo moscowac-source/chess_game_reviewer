@@ -3,6 +3,10 @@
 This file defines the rigid phase-by-phase development workflow for Chess Improver.
 Follow this process for every phase without exception.
 
+## Communication Style
+
+The user is not a developer. All explanations, plans, and clarifications must be written in plain language — no jargon, no code snippets, no technical terms without a plain-English explanation. When presenting a plan before starting work, describe what the code will *do* and *why*, not how it is structured internally. If a technical concept must be mentioned, explain it in one sentence a non-developer would understand.
+
 ## Before Starting Any Phase
 
 1. **Read the plan.** Open `plans/chess-improver.md`. Read the phase you are about to start — its description, the user stories it covers, and all acceptance criteria.
