@@ -34,7 +34,8 @@ it('renders email, password fields and submit button', () => {
 // Test 2: calls signUp and redirects to / on success
 // ---------------------------------------------------------------------------
 it('calls signUp and redirects to / on success', async () => {
-  mockSignUp.mockResolvedValue({ error: null })
+  // Simulate email confirmation disabled — session returned immediately
+  mockSignUp.mockResolvedValue({ data: { session: { access_token: 'tok' } }, error: null })
   render(<SignupPage />)
 
   await userEvent.type(screen.getByLabelText(/email/i), 'new@example.com')

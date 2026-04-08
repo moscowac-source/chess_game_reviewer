@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { getSessionUser } from '@/lib/supabase-server'
 import { buildReviewSession, type ReviewMode } from '@/lib/review-session-manager'
 
 const VALID_MODES = new Set<ReviewMode>(['standard', 'recent', 'mistakes', 'brilliancies'])
@@ -12,10 +13,7 @@ interface SessionDeps {
 
 export async function GET(req: Request, deps: SessionDeps = {}) {
   const db = deps.db ?? supabase
-  const authFn = deps.authFn ?? (async () => {
-    const { data } = await db.from('users').select('id').limit(1).single()
-    return data ?? null
-  })
+  const authFn = deps.authFn ?? getSessionUser
   const user = await authFn()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

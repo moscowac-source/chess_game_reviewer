@@ -135,6 +135,9 @@ function makeRequest(mode: 'historical' | 'incremental') {
   })
 }
 
+// Default authFn for tests — avoids hitting next/headers cookies() outside request scope
+const DEFAULT_AUTH = async () => MOCK_USER
+
 // ---------------------------------------------------------------------------
 // Test 1 (tracer bullet): response has the correct shape
 // ---------------------------------------------------------------------------
@@ -146,6 +149,7 @@ describe('POST /api/sync', () => {
       gamesFetcher: makeGamesFetcher([FIXTURE_PGN]),
       db: db as never,
       engineFactory: makeNoOpEngineFactory(),
+      authFn: DEFAULT_AUTH,
     })
 
     const body = await response.json()
@@ -175,6 +179,7 @@ describe('POST /api/sync', () => {
       gamesFetcher: makeGamesFetcher([FIXTURE_PGN, SECOND_PGN]),
       db: db as never,
       engineFactory: makeNoOpEngineFactory(),
+      authFn: DEFAULT_AUTH,
     })
 
     const body = await response.json()
@@ -199,6 +204,7 @@ describe('POST /api/sync', () => {
       gamesFetcher: trackingFetcher as never,
       db: db as never,
       engineFactory: makeNoOpEngineFactory(),
+      authFn: DEFAULT_AUTH,
     })
 
     expect(capturedMode).toBe('incremental')
@@ -217,6 +223,7 @@ describe('POST /api/sync', () => {
       gamesFetcher: trackingFetcher as never,
       db: db as never,
       engineFactory: makeNoOpEngineFactory(),
+      authFn: DEFAULT_AUTH,
     })
 
     expect(capturedMode).toBe('historical')
@@ -234,6 +241,7 @@ describe('POST /api/sync', () => {
       gamesFetcher: makeGamesFetcher([BAD_PGN, FIXTURE_PGN]),
       db: db as never,
       engineFactory: makeNoOpEngineFactory(),
+      authFn: DEFAULT_AUTH,
     })
 
     const body = await response.json()
@@ -269,6 +277,7 @@ describe('POST /api/sync', () => {
       gamesFetcher: makeGamesFetcher([FIXTURE_PGN, SECOND_PGN]),
       db: db as never,
       engineFactory: flakyEngineFactory,
+      authFn: DEFAULT_AUTH,
     })
 
     const body = await response.json()
@@ -290,6 +299,7 @@ describe('POST /api/sync — integration', () => {
       gamesFetcher: makeGamesFetcher([FIXTURE_PGN]),
       db: db as never,
       engineFactory: makeBlunderEngineFactory(),
+      authFn: DEFAULT_AUTH,
     })
 
     const body = await response.json()
@@ -318,6 +328,7 @@ describe('POST /api/sync — integration', () => {
       gamesFetcher: makeGamesFetcher([FIXTURE_PGN]),
       db: db1 as never,
       engineFactory: makeBlunderEngineFactory(),
+      authFn: DEFAULT_AUTH,
     })
 
     // Second sync — DB already contains those FENs
@@ -327,6 +338,7 @@ describe('POST /api/sync — integration', () => {
       gamesFetcher: makeGamesFetcher([FIXTURE_PGN]),
       db: db2 as never,
       engineFactory: makeBlunderEngineFactory(),
+      authFn: DEFAULT_AUTH,
     })
 
     const body2 = await response2.json()
@@ -410,6 +422,7 @@ describe('POST /api/sync — sync logging', () => {
       db: db as never,
       engineFactory: makeNoOpEngineFactory(),
       syncLogger,
+      authFn: DEFAULT_AUTH,
     })
 
     expect(startedMode).toBe('incremental')
@@ -435,6 +448,7 @@ describe('POST /api/sync — sync logging', () => {
       db: db as never,
       engineFactory: makeNoOpEngineFactory(),
       syncLogger,
+      authFn: DEFAULT_AUTH,
     })
 
     expect(completedResult).toBeDefined()

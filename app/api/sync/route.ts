@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { createClient, getSessionUser } from '@/lib/supabase-server'
 import { runSync, type SyncOptions, type SyncLogger } from '@/lib/sync-orchestrator'
 import type { UciEngine } from '@/lib/stockfish-analyzer'
 
@@ -41,9 +42,17 @@ function makeSupabaseSyncLogger(db: SupabaseClient, mode: 'historical' | 'increm
   }
 }
 
-async function getServerUser(db: SupabaseClient): Promise<AuthUser | null> {
-  const { data } = await db.from('users').select('id, chess_com_username').limit(1).single()
-  return data ?? null
+async function getSessionUserWithUsername(db: SupabaseClient): Promise<AuthUser | null> {
+  const sessionUser = await getSessionUser()
+  if (!sessionUser) return null
+
+  const { data } = await db
+    .from('users')
+    .select('chess_com_username')
+    .eq('id', sessionUser.id)
+    .single()
+
+  return { id: sessionUser.id, chess_com_username: data?.chess_com_username ?? null }
 }
 
 export async function POST(req: Request, deps: SyncDeps = {}) {
@@ -52,7 +61,7 @@ export async function POST(req: Request, deps: SyncDeps = {}) {
     body.mode === 'historical' ? 'historical' : 'incremental'
 
   const activeDb = deps.db ?? supabase
-  const authFn = deps.authFn ?? (() => getServerUser(activeDb))
+  const authFn = deps.authFn ?? (() => getSessionUserWithUsername(activeDb))
   const user = await authFn()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -75,15 +84,16 @@ export async function GET(req: Request) {
   const mode: 'historical' | 'incremental' =
     searchParams.get('mode') === 'historical' ? 'historical' : 'incremental'
 
-  const user = await getServerUser(supabase)
+  const serverDb = await createClient()
+  const user = await getSessionUserWithUsername(serverDb as unknown as SupabaseClient)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const result = await runSync(mode, {
     username: user.chess_com_username ?? '',
-    db: supabase,
-    syncLogger: makeSupabaseSyncLogger(supabase, mode, user.id),
+    db: serverDb as unknown as SupabaseClient,
+    syncLogger: makeSupabaseSyncLogger(serverDb as unknown as SupabaseClient, mode, user.id),
   })
 
   return NextResponse.json(result)

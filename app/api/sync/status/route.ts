@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { getSessionUser } from '@/lib/supabase-server'
 
 interface StatusDeps {
   db?: SupabaseClient
@@ -9,10 +10,7 @@ interface StatusDeps {
 
 export async function GET(_req: Request, deps: StatusDeps = {}) {
   const db = deps.db ?? supabase
-  const authFn = deps.authFn ?? (async () => {
-    const { data } = await db.from('users').select('id').limit(1).single()
-    return data ?? null
-  })
+  const authFn = deps.authFn ?? getSessionUser
 
   const user = await authFn()
   if (!user) {
