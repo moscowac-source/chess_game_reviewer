@@ -304,12 +304,12 @@ Extend the board component with attempt state. After a wrong first attempt, high
 
 ### Acceptance criteria
 
-- [ ] Wrong first attempt highlights the correct piece (not the correct square)
-- [ ] Second attempt allowed after hint is shown
-- [ ] Third failed attempt locks the board and reveals the correct move
-- [ ] `onResult` emits correct attempt outcome for each path
-- [ ] Board cannot be interacted with after resolution
-- [ ] All state transitions tested with React Testing Library
+- [x] Wrong first attempt highlights the correct piece (not the correct square)
+- [x] Second attempt allowed after hint is shown
+- [x] Third failed attempt locks the board and reveals the correct move
+- [x] `onResult` emits correct attempt outcome for each path
+- [x] Board cannot be interacted with after resolution
+- [x] All state transitions tested with React Testing Library
 
 ---
 
