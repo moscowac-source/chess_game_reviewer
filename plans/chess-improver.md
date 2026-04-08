@@ -268,7 +268,7 @@ Review the mockup and document the following so all UI phases have a shared refe
 ### Acceptance criteria
 
 - [x] `designs/DESIGN.md` committed with full design system, screen inventory, and component notes
-- [ ] Screenshot(s) from Stitch mockup added to `designs/` (dashboard.png, study.png)
+- [x] Screenshot(s) from Stitch mockup added to `designs/` (dashboard.png, study.png)
 - [x] Screen inventory documented (Dashboard, Study/Review — see DESIGN.md §6)
 - [x] Component list per screen documented
 - [x] Color palette and typography noted (see DESIGN.md §2–3)
