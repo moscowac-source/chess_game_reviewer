@@ -1,3 +1,5 @@
+import { LogoutButton } from '@/components/LogoutButton'
+
 export default function RootLayout({
   children,
 }: {
@@ -5,7 +7,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <nav>
+          <LogoutButton />
+        </nav>
+        {children}
+      </body>
     </html>
   );
 }

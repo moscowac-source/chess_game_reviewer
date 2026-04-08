@@ -397,11 +397,11 @@ Supabase Auth with email/password. Signup and login pages. Session cookies set o
 
 ### Acceptance criteria
 
-- [ ] User can sign up with email + password
-- [ ] User can log in and is redirected to the review session
-- [ ] Unauthenticated requests to protected routes redirect to login
-- [ ] Logout clears session and redirects to login
-- [ ] Auth state persists across page refreshes
+- [x] User can sign up with email + password
+- [x] User can log in and is redirected to the review session
+- [x] Unauthenticated requests to protected routes redirect to login
+- [x] Logout clears session and redirects to login
+- [x] Auth state persists across page refreshes
 
 ---
 
