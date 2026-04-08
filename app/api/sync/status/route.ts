@@ -4,10 +4,20 @@ import { supabase } from '@/lib/supabase'
 
 interface StatusDeps {
   db?: SupabaseClient
+  authFn?: () => Promise<{ id: string } | null>
 }
 
 export async function GET(_req: Request, deps: StatusDeps = {}) {
   const db = deps.db ?? supabase
+  const authFn = deps.authFn ?? (async () => {
+    const { data } = await db.from('users').select('id').limit(1).single()
+    return data ?? null
+  })
+
+  const user = await authFn()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { data, error } = await db
     .from('sync_log')

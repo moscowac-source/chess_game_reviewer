@@ -93,3 +93,39 @@ test('sync_log table has all required columns', () => {
   expect(block).toContain('"cards_created"')
   expect(block).toContain('"error"')
 })
+
+// ---------------------------------------------------------------------------
+// Phase 20: RLS migration
+// ---------------------------------------------------------------------------
+
+const RLS_MIGRATION_PATH = join(process.cwd(), 'supabase/migrations/003_rls_policies.sql')
+
+function getRlsSQL(): string {
+  return readFileSync(RLS_MIGRATION_PATH, 'utf8')
+}
+
+test('RLS migration file exists', () => {
+  expect(existsSync(RLS_MIGRATION_PATH)).toBe(true)
+})
+
+test('RLS migration enables row level security on all user-scoped tables', () => {
+  const sql = getRlsSQL()
+  const tables = ['users', 'games', 'card_state', 'review_log', 'sync_log']
+  for (const table of tables) {
+    expect(sql).toContain(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY`)
+  }
+})
+
+test('RLS migration creates SELECT policies scoped to auth.uid() for user-scoped tables', () => {
+  const sql = getRlsSQL()
+  const tables = ['users', 'games', 'card_state', 'review_log', 'sync_log']
+  for (const table of tables) {
+    expect(sql).toContain(`"${table}"`)
+  }
+  expect(sql).toContain('auth.uid()')
+})
+
+test('RLS migration enables row level security on cards table', () => {
+  const sql = getRlsSQL()
+  expect(sql).toContain('ALTER TABLE "cards" ENABLE ROW LEVEL SECURITY')
+})

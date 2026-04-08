@@ -43,6 +43,8 @@ function makeMockDb(rows: typeof FIXTURE_LOG[] = []) {
   }
 }
 
+const AUTH_FN = async () => ({ id: 'dev-user-id' })
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -52,7 +54,7 @@ describe('GET /api/sync/status', () => {
   it('returns the most recent sync log entry', async () => {
     const db = makeMockDb([FIXTURE_LOG])
 
-    const response = await GET(makeStatusRequest(), { db: db as never })
+    const response = await GET(makeStatusRequest(), { db: db as never, authFn: AUTH_FN })
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -67,10 +69,16 @@ describe('GET /api/sync/status', () => {
   it('returns null when no sync log entries exist', async () => {
     const db = makeMockDb([])
 
-    const response = await GET(makeStatusRequest(), { db: db as never })
+    const response = await GET(makeStatusRequest(), { db: db as never, authFn: AUTH_FN })
     const body = await response.json()
 
     expect(response.status).toBe(200)
     expect(body).toBeNull()
+  })
+
+  it('returns 401 when no authenticated user', async () => {
+    const db = makeMockDb([FIXTURE_LOG])
+    const response = await GET(makeStatusRequest(), { db: db as never, authFn: async () => null })
+    expect(response.status).toBe(401)
   })
 })

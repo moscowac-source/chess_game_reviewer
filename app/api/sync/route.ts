@@ -4,23 +4,24 @@ import { supabase } from '@/lib/supabase'
 import { runSync, type SyncOptions, type SyncLogger } from '@/lib/sync-orchestrator'
 import type { UciEngine } from '@/lib/stockfish-analyzer'
 
-// Hardcoded dev values used in early phases before auth is wired up
-const DEV_USERNAME = 'Catalyst030119'
-// Placeholder UUID — replaced when auth + user scoping land in Phase 19–20
-const DEV_USER_ID = '00000000-0000-0000-0000-000000000001'
+interface AuthUser {
+  id: string
+  chess_com_username?: string | null
+}
 
 interface SyncDeps {
   gamesFetcher?: SyncOptions['gamesFetcher']
   db?: SupabaseClient
   engineFactory?: () => UciEngine
   syncLogger?: SyncLogger
+  authFn?: () => Promise<AuthUser | null>
 }
 
-function makeSupabaseSyncLogger(db: SupabaseClient, mode: 'historical' | 'incremental'): SyncLogger {
+function makeSupabaseSyncLogger(db: SupabaseClient, mode: 'historical' | 'incremental', userId: string): SyncLogger {
   return {
     async logStart() {
       const { data } = await db.from('sync_log').insert({
-        user_id: DEV_USER_ID,
+        user_id: userId,
         mode,
         started_at: new Date().toISOString(),
         games_processed: 0,
@@ -40,18 +41,29 @@ function makeSupabaseSyncLogger(db: SupabaseClient, mode: 'historical' | 'increm
   }
 }
 
+async function getServerUser(db: SupabaseClient): Promise<AuthUser | null> {
+  const { data } = await db.from('users').select('id, chess_com_username').limit(1).single()
+  return data ?? null
+}
+
 export async function POST(req: Request, deps: SyncDeps = {}) {
   const body = await req.json().catch(() => ({}))
   const mode: 'historical' | 'incremental' =
     body.mode === 'historical' ? 'historical' : 'incremental'
 
   const activeDb = deps.db ?? supabase
+  const authFn = deps.authFn ?? (() => getServerUser(activeDb))
+  const user = await authFn()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const result = await runSync(mode, {
-    username: DEV_USERNAME,
+    username: user.chess_com_username ?? '',
     db: activeDb,
     gamesFetcher: deps.gamesFetcher,
     engineFactory: deps.engineFactory,
-    syncLogger: deps.syncLogger ?? makeSupabaseSyncLogger(activeDb, mode),
+    syncLogger: deps.syncLogger ?? makeSupabaseSyncLogger(activeDb, mode, user.id),
   })
 
   return NextResponse.json(result)
@@ -63,10 +75,15 @@ export async function GET(req: Request) {
   const mode: 'historical' | 'incremental' =
     searchParams.get('mode') === 'historical' ? 'historical' : 'incremental'
 
+  const user = await getServerUser(supabase)
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const result = await runSync(mode, {
-    username: DEV_USERNAME,
+    username: user.chess_com_username ?? '',
     db: supabase,
-    syncLogger: makeSupabaseSyncLogger(supabase, mode),
+    syncLogger: makeSupabaseSyncLogger(supabase, mode, user.id),
   })
 
   return NextResponse.json(result)

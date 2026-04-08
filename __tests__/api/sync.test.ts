@@ -28,6 +28,8 @@ function makeGamesFetcher(pgns: string[]) {
   return async (_username: string, _mode: string) => pgns
 }
 
+const MOCK_USER = { id: 'mock-user-id', chess_com_username: 'testuser' }
+
 // Fake database that remembers which FENs already exist and records inserts.
 // Pass `existingFens` to simulate a DB that already has those cards.
 function makeMockDb(existingFens: string[] = []) {
@@ -43,6 +45,15 @@ function makeMockDb(existingFens: string[] = []) {
           }),
           update: (_updates: Record<string, unknown>) => ({
             eq: (_col: string, _val: string) => Promise.resolve({ data: null, error: null }),
+          }),
+        }
+      }
+      if (table === 'users') {
+        return {
+          select: (_cols: string) => ({
+            limit: (_n: number) => ({
+              single: () => Promise.resolve({ data: MOCK_USER, error: null }),
+            }),
           }),
         }
       }
@@ -323,6 +334,54 @@ describe('POST /api/sync — integration', () => {
     // No new cards created — all FENs were already in the DB
     expect(rows2).toHaveLength(0)
     expect(body2.cardsCreated).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Phase 20: Auth — 401 for unauthenticated requests + username scoping
+// ---------------------------------------------------------------------------
+describe('POST /api/sync — auth', () => {
+  it('returns 401 when no authenticated user', async () => {
+    const { db } = makeMockDb()
+
+    const response = await POST(makeRequest('incremental'), {
+      db: db as never,
+      authFn: async () => null,
+    })
+
+    expect(response.status).toBe(401)
+  })
+
+  it('returns 200 when authenticated user is provided', async () => {
+    const { db } = makeMockDb()
+
+    const response = await POST(makeRequest('incremental'), {
+      db: db as never,
+      authFn: async () => ({ id: 'user-123', chess_com_username: 'testuser' }),
+      gamesFetcher: makeGamesFetcher([FIXTURE_PGN]),
+      engineFactory: makeNoOpEngineFactory(),
+    })
+
+    expect(response.status).toBe(200)
+  })
+
+  it("passes the authenticated user's chess_com_username to the games fetcher", async () => {
+    const { db } = makeMockDb()
+    let capturedUsername: string | undefined
+
+    const trackingFetcher = async (username: string, _mode: string) => {
+      capturedUsername = username
+      return [FIXTURE_PGN]
+    }
+
+    await POST(makeRequest('incremental'), {
+      db: db as never,
+      authFn: async () => ({ id: 'user-123', chess_com_username: 'MyChessUsername' }),
+      gamesFetcher: trackingFetcher as never,
+      engineFactory: makeNoOpEngineFactory(),
+    })
+
+    expect(capturedUsername).toBe('MyChessUsername')
   })
 })
 

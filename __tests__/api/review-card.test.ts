@@ -16,10 +16,11 @@ function makeRequest(body: Record<string, unknown>) {
   })
 }
 
-function makeContext(cardId: string, recordReviewFn?: jest.Mock) {
+function makeContext(cardId: string, recordReviewFn?: jest.Mock, authFn?: () => Promise<{ id: string } | null>) {
   return {
     params: { cardId },
     recordReviewFn,
+    authFn: authFn ?? (async () => ({ id: USER_ID })),
   }
 }
 
@@ -71,6 +72,18 @@ describe('PATCH /api/review/cards/[cardId]', () => {
     )
 
     expect(response.status).toBe(400)
+    expect(recordReviewFn).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 when no authenticated user', async () => {
+    const recordReviewFn = jest.fn()
+
+    const response = await PATCH(
+      makeRequest({ outcome: 'firstTry' }),
+      makeContext(CARD_ID, recordReviewFn, async () => null),
+    )
+
+    expect(response.status).toBe(401)
     expect(recordReviewFn).not.toHaveBeenCalled()
   })
 })

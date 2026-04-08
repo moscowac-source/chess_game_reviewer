@@ -81,7 +81,7 @@ describe('GET /api/review/counts', () => {
     const db = makeMockDb(cardStates, cards)
 
     const req = new Request('http://localhost/api/review/counts')
-    const response = await GET(req, { db: db as never })
+    const response = await GET(req, { db: db as never, authFn: async () => ({ id: USER }) })
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -98,5 +98,12 @@ describe('GET /api/review/counts', () => {
     expect(body.brilliancies).toBe(1)
     // recent: card-great (due, recent game) + card-new (new, recent game) = 2
     expect(body.recent).toBe(2)
+  })
+
+  it('returns 401 when no authenticated user', async () => {
+    const db = makeMockDb()
+    const req = new Request('http://localhost/api/review/counts')
+    const response = await GET(req, { db: db as never, authFn: async () => null })
+    expect(response.status).toBe(401)
   })
 })

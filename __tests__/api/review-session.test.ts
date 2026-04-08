@@ -77,7 +77,7 @@ describe('GET /api/review/session', () => {
     ]
     const db = makeMockDb(cardStates, cards)
 
-    const response = await GET(makeRequest(), { db: db as never })
+    const response = await GET(makeRequest(), { db: db as never, authFn: async () => ({ id: USER }) })
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -92,7 +92,7 @@ describe('GET /api/review/session', () => {
   it('returns an empty session when no cards exist', async () => {
     const db = makeMockDb([], [])
 
-    const response = await GET(makeRequest(), { db: db as never })
+    const response = await GET(makeRequest(), { db: db as never, authFn: async () => ({ id: USER }) })
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -111,12 +111,21 @@ describe('GET /api/review/session', () => {
     ]
     const db = makeMockDb(cardStates, cards)
 
-    const response = await GET(makeRequest('mistakes'), { db: db as never })
+    const response = await GET(makeRequest('mistakes'), { db: db as never, authFn: async () => ({ id: USER }) })
     const body = await response.json()
 
     expect(response.status).toBe(200)
     const ids = body.cards.map((c: { cardId: string }) => c.cardId)
     expect(ids).toContain('card-blunder')
     expect(ids).not.toContain('card-great')
+  })
+
+  it('returns 401 when no authenticated user', async () => {
+    const db = makeMockDb()
+    const response = await GET(makeRequest('standard'), {
+      db: db as never,
+      authFn: async () => null,
+    })
+    expect(response.status).toBe(401)
   })
 })
