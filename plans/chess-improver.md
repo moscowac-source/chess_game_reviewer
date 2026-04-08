@@ -241,11 +241,11 @@ Build the daily review queue for a user: fetch cards due today from FSRS Engine,
 
 ### Acceptance criteria
 
-- [ ] Queue contains correct mix of due cards and new cards
-- [ ] Daily new-card limit is respected (not exceeded)
-- [ ] Partially-completed session can be resumed (queue state persisted)
-- [ ] `GET /api/review/session` returns the queue in the correct shape
-- [ ] Unit tested — limit enforcement, queue composition, resumability
+- [x] Queue contains correct mix of due cards and new cards
+- [x] Daily new-card limit is respected (not exceeded)
+- [x] Partially-completed session can be resumed (queue state persisted)
+- [x] `GET /api/review/session` returns the queue in the correct shape
+- [x] Unit tested — limit enforcement, queue composition, resumability
 
 ---
 
