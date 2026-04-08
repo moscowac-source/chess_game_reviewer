@@ -9,6 +9,7 @@ export default function SignupPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [chessUsername, setChessUsername] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [confirmationSent, setConfirmationSent] = useState(false)
@@ -25,6 +26,18 @@ export default function SignupPage() {
       setError(authError.message)
       setLoading(false)
       return
+    }
+
+    const userId = data.user?.id
+    if (userId) {
+      // Upsert the public.users row with chess_com_username.
+      // (The trigger handles creation on normal signup; this also covers the
+      // case where the trigger hasn't run yet or email confirmation is disabled.)
+      await supabase.from('users').upsert({
+        id: userId,
+        email,
+        chess_com_username: chessUsername || null,
+      })
     }
 
     // If a session exists, email confirmation is disabled — go straight to the app
@@ -72,6 +85,16 @@ export default function SignupPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+          />
+        </div>
+        <div>
+          <label htmlFor="chess-username">Chess.com username</label>
+          <input
+            id="chess-username"
+            type="text"
+            value={chessUsername}
+            onChange={(e) => setChessUsername(e.target.value)}
+            placeholder="e.g. Catalyst030119"
           />
         </div>
         {error && <p data-testid="auth-error">{error}</p>}

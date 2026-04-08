@@ -10,6 +10,7 @@ interface SyncStatusProps {
 export default function SyncStatus({ fetcher = fetch }: SyncStatusProps) {
   const [status, setStatus] = useState<SyncLog | null | undefined>(undefined)
   const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
 
   async function fetchStatus() {
     const res = await fetcher('/api/sync/status')
@@ -23,11 +24,16 @@ export default function SyncStatus({ fetcher = fetch }: SyncStatusProps) {
 
   async function handleSyncNow() {
     setSyncing(true)
-    await fetcher('/api/sync', {
+    setSyncError(null)
+    const res = await fetcher('/api/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode: 'incremental' }),
     })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      setSyncError(body.error ?? `Sync failed (${res.status})`)
+    }
     await fetchStatus()
     setSyncing(false)
   }
@@ -48,6 +54,7 @@ export default function SyncStatus({ fetcher = fetch }: SyncStatusProps) {
           )}
         </div>
       )}
+      {syncError && <p data-testid="sync-trigger-error">{syncError}</p>}
       <button
         data-testid="sync-now-button"
         onClick={handleSyncNow}

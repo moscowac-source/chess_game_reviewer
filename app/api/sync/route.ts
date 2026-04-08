@@ -67,8 +67,15 @@ export async function POST(req: Request, deps: SyncDeps = {}) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  if (!user.chess_com_username) {
+    return NextResponse.json(
+      { error: 'Chess.com username not set. Please update your profile.' },
+      { status: 422 }
+    )
+  }
+
   const result = await runSync(mode, {
-    username: user.chess_com_username ?? '',
+    username: user.chess_com_username,
     db: activeDb,
     gamesFetcher: deps.gamesFetcher,
     engineFactory: deps.engineFactory,
