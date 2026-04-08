@@ -286,11 +286,11 @@ A React component that renders a chess position from a FEN string using `react-c
 
 ### Acceptance criteria
 
-- [ ] Board renders the correct position from a FEN prop
-- [ ] Correct move triggers `onResult('correct')`
-- [ ] Incorrect move triggers `onResult('incorrect')`
-- [ ] Illegal moves (per chess rules) are rejected without triggering `onResult`
-- [ ] Tested with React Testing Library — all result branches covered
+- [x] Board renders the correct position from a FEN prop
+- [x] Correct move triggers `onResult('correct')`
+- [x] Incorrect move triggers `onResult('incorrect')`
+- [x] Illegal moves (per chess rules) are rejected without triggering `onResult`
+- [x] Tested with React Testing Library — all result branches covered
 
 ---
 
