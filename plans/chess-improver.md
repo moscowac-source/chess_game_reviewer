@@ -323,12 +323,12 @@ The core review UI. Fetches queue from `GET /api/review/session`. Presents one b
 
 ### Acceptance criteria
 
-- [ ] Loads and displays the first card from the session queue
-- [ ] Correct/incorrect result is POSTed and card advances
-- [ ] Session progress updates after each card
-- [ ] Completion state shown when queue is empty
-- [ ] Partial session resume works (page reload mid-session continues from correct position)
-- [ ] Responsive and usable on desktop
+- [x] Loads and displays the first card from the session queue
+- [x] Correct/incorrect result is POSTed and card advances
+- [x] Session progress updates after each card
+- [x] Completion state shown when queue is empty
+- [x] Partial session resume works (page reload mid-session continues from correct position)
+- [x] Responsive and usable on desktop
 
 ---
 
