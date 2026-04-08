@@ -11,6 +11,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [confirmationSent, setConfirmationSent] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -18,7 +19,7 @@ export default function SignupPage() {
     setLoading(true)
 
     const supabase = createClient()
-    const { error: authError } = await supabase.auth.signUp({ email, password })
+    const { data, error: authError } = await supabase.auth.signUp({ email, password })
 
     if (authError) {
       setError(authError.message)
@@ -26,8 +27,26 @@ export default function SignupPage() {
       return
     }
 
-    router.push('/')
-    router.refresh()
+    // If a session exists, email confirmation is disabled — go straight to the app
+    if (data.session) {
+      router.push('/')
+      router.refresh()
+      return
+    }
+
+    // Otherwise Supabase sent a confirmation email — show a message
+    setConfirmationSent(true)
+    setLoading(false)
+  }
+
+  if (confirmationSent) {
+    return (
+      <main>
+        <h1>Chess Improver</h1>
+        <h2>Check your email</h2>
+        <p>We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account, then <Link href="/login">log in</Link>.</p>
+      </main>
+    )
   }
 
   return (
