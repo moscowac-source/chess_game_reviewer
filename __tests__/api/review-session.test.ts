@@ -54,8 +54,11 @@ function makeMockDb(cardStates: Row[] = [], cards: Row[] = [], reviewLogs: Row[]
   }
 }
 
-function makeRequest() {
-  return new Request('http://localhost/api/review/session', { method: 'GET' })
+function makeRequest(mode?: string) {
+  const url = mode
+    ? `http://localhost/api/review/session?mode=${mode}`
+    : 'http://localhost/api/review/session'
+  return new Request(url, { method: 'GET' })
 }
 
 // ---------------------------------------------------------------------------
@@ -95,5 +98,25 @@ describe('GET /api/review/session', () => {
     expect(response.status).toBe(200)
     expect(body.cards).toHaveLength(0)
     expect(body.totalDue).toBe(0)
+  })
+
+  it('mode=mistakes filters to only blunder/mistake cards via query param', async () => {
+    const cardStates: Row[] = [
+      { card_id: 'card-blunder', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+      { card_id: 'card-great',   user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+    ]
+    const cards: Row[] = [
+      { id: 'card-blunder', fen: 'fen1', correct_move: 'e4',  classification: 'blunder' },
+      { id: 'card-great',   fen: 'fen2', correct_move: 'Nf3', classification: 'great' },
+    ]
+    const db = makeMockDb(cardStates, cards)
+
+    const response = await GET(makeRequest('mistakes'), { db: db as never })
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    const ids = body.cards.map((c: { cardId: string }) => c.cardId)
+    expect(ids).toContain('card-blunder')
+    expect(ids).not.toContain('card-great')
   })
 })

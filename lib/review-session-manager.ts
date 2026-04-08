@@ -15,9 +15,12 @@ export interface ReviewSession {
   newCardsToday: number
 }
 
+export type ReviewMode = 'standard' | 'recent' | 'mistakes' | 'brilliancies'
+
 export interface SessionOptions {
   dailyNewLimit?: number
   now?: Date
+  mode?: ReviewMode
 }
 
 type RawCardState = {
@@ -37,6 +40,23 @@ type RawCard = {
   fen: string
   correct_move: string
   classification: CardClassification
+  game_played_at?: string | null
+}
+
+const MISTAKE_CLASSIFICATIONS: CardClassification[] = ['blunder', 'mistake']
+const BRILLIANCY_CLASSIFICATIONS: CardClassification[] = ['great', 'brilliant']
+
+function applyModeFilter(cards: RawCard[], mode: ReviewMode, now: Date): RawCard[] {
+  if (mode === 'standard') return cards
+  if (mode === 'mistakes') return cards.filter((c) => MISTAKE_CLASSIFICATIONS.includes(c.classification))
+  if (mode === 'brilliancies') return cards.filter((c) => BRILLIANCY_CLASSIFICATIONS.includes(c.classification))
+  if (mode === 'recent') {
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    return cards.filter(
+      (c) => c.game_played_at != null && new Date(c.game_played_at) >= sevenDaysAgo,
+    )
+  }
+  return cards
 }
 
 export async function buildReviewSession(
@@ -46,6 +66,7 @@ export async function buildReviewSession(
 ): Promise<ReviewSession> {
   const now = options.now ?? new Date()
   const dailyNewLimit = options.dailyNewLimit ?? 20
+  const mode: ReviewMode = options.mode ?? 'standard'
 
   // Fetch all card states for this user
   const { data: allStates } = await db
@@ -106,7 +127,9 @@ export async function buildReviewSession(
 
   const dueIds = new Set(dueStates.map((s) => s.card_id))
 
-  const cards: SessionCard[] = ((cardData ?? []) as RawCard[]).map((c) => ({
+  const filteredCardData = applyModeFilter((cardData ?? []) as RawCard[], mode, now)
+
+  const cards: SessionCard[] = filteredCardData.map((c) => ({
     cardId: c.id,
     fen: c.fen,
     correctMove: c.correct_move,

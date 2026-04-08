@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { ReviewBoard } from '@/components/ReviewBoard'
 import type { ReviewOutcome } from '@/lib/fsrs-engine'
 
@@ -19,18 +20,21 @@ interface ReviewSession {
 }
 
 export default function ReviewPage() {
+  const searchParams = useSearchParams()
+  const mode = searchParams.get('mode') ?? 'standard'
+
   const [queue, setQueue] = useState<SessionCard[]>([])
   const [index, setIndex] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/review/session')
+    fetch(`/api/review/session?mode=${mode}`)
       .then((r) => r.json())
       .then((session: ReviewSession) => {
         setQueue(session.cards)
         setLoading(false)
       })
-  }, [])
+  }, [mode])
 
   if (loading) {
     return <div data-testid="loading">Loading…</div>

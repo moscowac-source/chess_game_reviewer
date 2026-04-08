@@ -357,15 +357,15 @@ Default is `'standard'` (existing behavior, unchanged).
 
 ### Acceptance criteria
 
-- [ ] `GET /api/review/session?mode=recent` returns only cards from games played in the last 7 days
-- [ ] `GET /api/review/session?mode=mistakes` returns only cards with classification `blunder` or `mistake`
-- [ ] `GET /api/review/session?mode=brilliancies` returns only cards with classification `great` or `brilliant` (UI label: "Back to Brilliancies")
-- [ ] `mode=standard` (default) behaves identically to the existing session endpoint
-- [ ] Each mode still applies FSRS due-date filtering within its card pool
-- [ ] Mode selection home screen renders the four modes with due-card counts
-- [ ] Selecting a mode starts a session filtered to that mode
-- [ ] API unit tested — all four modes return correct card subsets
-- [ ] UI tested — mode selection renders and routes correctly
+- [x] `GET /api/review/session?mode=recent` returns only cards from games played in the last 7 days
+- [x] `GET /api/review/session?mode=mistakes` returns only cards with classification `blunder` or `mistake`
+- [x] `GET /api/review/session?mode=brilliancies` returns only cards with classification `great` or `brilliant` (UI label: "Back to Brilliancies")
+- [x] `mode=standard` (default) behaves identically to the existing session endpoint
+- [x] Each mode still applies FSRS due-date filtering within its card pool
+- [x] Mode selection home screen renders the four modes with due-card counts
+- [x] Selecting a mode starts a session filtered to that mode
+- [x] API unit tested — all four modes return correct card subsets
+- [x] UI tested — mode selection renders and routes correctly
 
 ---
 

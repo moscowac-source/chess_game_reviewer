@@ -24,6 +24,16 @@ function makeSession(cards: typeof CARD_A[]) {
   return { cards, totalDue: cards.length, newCardsToday: 0 }
 }
 
+// ── Mock next/navigation ─────────────────────────────────────────────────────
+
+let mockSearchParams = new URLSearchParams()
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+  useRouter: () => ({ push: jest.fn() }),
+  usePathname: () => '/review',
+}))
+
 // ── Mock ReviewBoard ──────────────────────────────────────────────────────────
 
 let capturedOnResult: ((outcome: ReviewOutcome) => void) | null = null
@@ -41,7 +51,7 @@ jest.mock('@/components/ReviewBoard', () => ({
 
 function mockFetch(sessionCards: typeof CARD_A[]) {
   const mock = jest.fn().mockImplementation((url: string, init?: RequestInit) => {
-    if (url === '/api/review/session') {
+    if (typeof url === 'string' && url.startsWith('/api/review/session')) {
       return Promise.resolve({
         ok: true,
         json: async () => makeSession(sessionCards),
@@ -61,6 +71,7 @@ function mockFetch(sessionCards: typeof CARD_A[]) {
 beforeEach(() => {
   capturedOnResult = null
   capturedFen = null
+  mockSearchParams = new URLSearchParams()
   jest.restoreAllMocks()
 })
 
@@ -150,5 +161,21 @@ describe('Review Session Page', () => {
     // Page starts at CARD_B, not CARD_A — server state drives position, not client cache
     expect(capturedFen).toBe(CARD_B.fen)
     expect(screen.getByTestId('progress')).toHaveTextContent('1 remaining')
+  })
+
+  // -------------------------------------------------------------------------
+  // Phase 17: review page passes ?mode to the session API
+  // -------------------------------------------------------------------------
+  it('fetches /api/review/session?mode=mistakes when mode=mistakes is in the URL', async () => {
+    mockSearchParams = new URLSearchParams('mode=mistakes')
+    const fetchMock = mockFetch([CARD_A])
+
+    render(<ReviewPage />)
+    await waitFor(() => screen.getByTestId('review-board'))
+
+    const sessionCall = (fetchMock as jest.Mock).mock.calls.find(
+      ([url]: [string]) => url.includes('/api/review/session'),
+    )
+    expect(sessionCall[0]).toBe('/api/review/session?mode=mistakes')
   })
 })

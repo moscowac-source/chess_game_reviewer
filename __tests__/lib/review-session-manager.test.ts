@@ -228,4 +228,130 @@ describe('buildReviewSession', () => {
       isNew: false,
     })
   })
+
+  // =========================================================================
+  // Phase 17: Quiz Modes — Filtered Sessions
+  // =========================================================================
+
+  // -------------------------------------------------------------------------
+  // Test 7: mode=standard behaves identically to the default
+  // -------------------------------------------------------------------------
+  it('mode=standard returns the same result as the default (no mode)', async () => {
+
+    const cardStates: Row[] = [
+      { card_id: 'card-1', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+      { card_id: 'card-2', user_id: USER, state: 'new', due_date: TODAY, stability: 0, difficulty: 0, review_count: 0 },
+    ]
+    const cards: Row[] = [
+      { id: 'card-1', fen: 'fen1', correct_move: 'e4', classification: 'blunder' },
+      { id: 'card-2', fen: 'fen2', correct_move: 'Nf3', classification: 'great' },
+    ]
+    const { db: dbDefault } = makeMockDb(cardStates, cards)
+    const { db: dbStandard } = makeMockDb(cardStates, cards)
+
+    const defaultSession = await buildReviewSession(USER, dbDefault as never)
+    const standardSession = await buildReviewSession(USER, dbStandard as never, { mode: 'standard' })
+
+    expect(standardSession.cards).toHaveLength(defaultSession.cards.length)
+    expect(standardSession.totalDue).toBe(defaultSession.totalDue)
+  })
+
+  // -------------------------------------------------------------------------
+  // Test 8: mode=mistakes returns only blunder/mistake cards
+  // -------------------------------------------------------------------------
+  it('mode=mistakes returns only cards with classification blunder or mistake', async () => {
+    const cardStates: Row[] = [
+      { card_id: 'card-blunder', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+      { card_id: 'card-mistake', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+      { card_id: 'card-great',   user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+    ]
+    const cards: Row[] = [
+      { id: 'card-blunder', fen: 'fen1', correct_move: 'e4', classification: 'blunder' },
+      { id: 'card-mistake', fen: 'fen2', correct_move: 'Nf3', classification: 'mistake' },
+      { id: 'card-great',   fen: 'fen3', correct_move: 'Bb5', classification: 'great' },
+    ]
+    const { db } = makeMockDb(cardStates, cards)
+
+    const session = await buildReviewSession(USER, db as never, { mode: 'mistakes' })
+
+    const ids = session.cards.map((c) => c.cardId)
+    expect(ids).toContain('card-blunder')
+    expect(ids).toContain('card-mistake')
+    expect(ids).not.toContain('card-great')
+  })
+
+  // -------------------------------------------------------------------------
+  // Test 9: mode=brilliancies returns only great/brilliant cards
+  // -------------------------------------------------------------------------
+  it('mode=brilliancies returns only cards with classification great or brilliant', async () => {
+    const cardStates: Row[] = [
+      { card_id: 'card-blunder',   user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+      { card_id: 'card-great',     user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+      { card_id: 'card-brilliant', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+    ]
+    const cards: Row[] = [
+      { id: 'card-blunder',   fen: 'fen1', correct_move: 'e4',  classification: 'blunder' },
+      { id: 'card-great',     fen: 'fen2', correct_move: 'Nf3', classification: 'great' },
+      { id: 'card-brilliant', fen: 'fen3', correct_move: 'Bb5', classification: 'brilliant' },
+    ]
+    const { db } = makeMockDb(cardStates, cards)
+
+    const session = await buildReviewSession(USER, db as never, { mode: 'brilliancies' })
+
+    const ids = session.cards.map((c) => c.cardId)
+    expect(ids).toContain('card-great')
+    expect(ids).toContain('card-brilliant')
+    expect(ids).not.toContain('card-blunder')
+  })
+
+  // -------------------------------------------------------------------------
+  // Test 10: mode=recent returns only cards from games in last 7 days
+  // -------------------------------------------------------------------------
+  it('mode=recent returns only cards whose game_played_at is within the last 7 days', async () => {
+    const now = new Date('2025-06-15T12:00:00Z')
+    const duePast     = '2025-06-13T12:00:00Z' // due before now — cards are due in this mock world
+    const recentDate  = new Date('2025-06-12T10:00:00Z').toISOString() // 3 days ago — included
+    const oldDate     = new Date('2025-06-01T10:00:00Z').toISOString() // 14 days ago — excluded
+    const nullDate    = null                                             // no date — excluded
+
+    const cardStates: Row[] = [
+      { card_id: 'card-recent', user_id: USER, state: 'review', due_date: duePast, stability: 5, difficulty: 3, review_count: 2 },
+      { card_id: 'card-old',    user_id: USER, state: 'review', due_date: duePast, stability: 5, difficulty: 3, review_count: 2 },
+      { card_id: 'card-null',   user_id: USER, state: 'review', due_date: duePast, stability: 5, difficulty: 3, review_count: 2 },
+    ]
+    const cards: Row[] = [
+      { id: 'card-recent', fen: 'fen1', correct_move: 'e4',  classification: 'blunder', game_played_at: recentDate },
+      { id: 'card-old',    fen: 'fen2', correct_move: 'Nf3', classification: 'mistake', game_played_at: oldDate },
+      { id: 'card-null',   fen: 'fen3', correct_move: 'Bb5', classification: 'great',   game_played_at: nullDate },
+    ]
+    const { db } = makeMockDb(cardStates, cards)
+
+    const session = await buildReviewSession(USER, db as never, { mode: 'recent', now })
+
+    const ids = session.cards.map((c) => c.cardId)
+    expect(ids).toContain('card-recent')
+    expect(ids).not.toContain('card-old')
+    expect(ids).not.toContain('card-null')
+  })
+
+  // -------------------------------------------------------------------------
+  // Test 11: FSRS due-date filtering still applies within a filtered mode
+  // -------------------------------------------------------------------------
+  it('mode=mistakes excludes cards that are not yet due even if classification matches', async () => {
+    const cardStates: Row[] = [
+      { card_id: 'card-due',     user_id: USER, state: 'review', due_date: PAST,   stability: 5, difficulty: 3, review_count: 2 },
+      { card_id: 'card-not-due', user_id: USER, state: 'review', due_date: FUTURE, stability: 5, difficulty: 3, review_count: 2 },
+    ]
+    const cards: Row[] = [
+      { id: 'card-due',     fen: 'fen1', correct_move: 'e4',  classification: 'blunder' },
+      { id: 'card-not-due', fen: 'fen2', correct_move: 'Nf3', classification: 'mistake' },
+    ]
+    const { db } = makeMockDb(cardStates, cards)
+
+    const session = await buildReviewSession(USER, db as never, { mode: 'mistakes' })
+
+    const ids = session.cards.map((c) => c.cardId)
+    expect(ids).toContain('card-due')
+    expect(ids).not.toContain('card-not-due')
+  })
 })
