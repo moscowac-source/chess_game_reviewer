@@ -13,6 +13,9 @@ function mockCountsFetch(counts: Record<string, number>) {
     if (url === '/api/review/counts') {
       return Promise.resolve({ ok: true, json: async () => counts })
     }
+    if (url === '/api/sync/status') {
+      return Promise.resolve({ ok: true, json: async () => null })
+    }
     throw new Error(`Unexpected fetch: ${url}`)
   })
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import SyncStatus from '@/components/SyncStatus'
 
 interface ModeCounts {
   standard: number
@@ -57,6 +58,7 @@ export default function HomePage() {
           </Link>
         ))}
       </div>
+      <SyncStatus />
     </main>
   )
 }

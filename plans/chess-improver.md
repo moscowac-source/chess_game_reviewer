@@ -379,11 +379,11 @@ A UI element (header or settings page) showing last sync time, games processed, 
 
 ### Acceptance criteria
 
-- [ ] Sync status displays last sync time, game count, card count
-- [ ] Error state is visible when the last sync failed
-- [ ] "Sync Now" triggers incremental sync and shows loading indicator
-- [ ] Status refreshes automatically after sync completes
-- [ ] Tested — button triggers correct API call, status updates on response
+- [x] Sync status displays last sync time, game count, card count
+- [x] Error state is visible when the last sync failed
+- [x] "Sync Now" triggers incremental sync and shows loading indicator
+- [x] Status refreshes automatically after sync completes
+- [x] Tested — button triggers correct API call, status updates on response
 
 ---
 
