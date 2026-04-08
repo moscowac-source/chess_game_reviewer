@@ -131,6 +131,6 @@ export async function analyzeGame(
 
 function createDefaultEngine(): UciEngine {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Stockfish = require('stockfish')
+  const Stockfish = require('stockfish/src/stockfish-nnue-16-single.js')
   return typeof Stockfish === 'function' ? Stockfish() : Stockfish.default()
 }
