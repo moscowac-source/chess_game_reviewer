@@ -415,11 +415,11 @@ Add `user_id` to all tables. Enable Supabase Row Level Security policies so user
 
 ### Acceptance criteria
 
-- [ ] RLS policies in place on all tables — no cross-user data leakage
-- [ ] Chess.com username stored per user and used in sync pipeline
-- [ ] Two separate test accounts have fully isolated card decks and review history
-- [ ] All API routes return 401 for unauthenticated requests
-- [ ] Integration tested — user A cannot read or write user B's rows
+- [x] RLS policies in place on all tables — no cross-user data leakage
+- [x] Chess.com username stored per user and used in sync pipeline
+- [x] Two separate test accounts have fully isolated card decks and review history
+- [x] All API routes return 401 for unauthenticated requests
+- [x] Integration tested — user A cannot read or write user B's rows
 
 ---
 
