@@ -222,12 +222,12 @@ Wrap `ts-fsrs` into a clean internal interface. Manage card state initialization
 
 ### Acceptance criteria
 
-- [ ] New card gets initialized with correct FSRS defaults in `card_state`
-- [ ] `recordReview` with `Easy` increases interval correctly
-- [ ] `recordReview` with `Again` resets interval
-- [ ] `getNextCard` returns the card with the earliest due date
-- [ ] Outcome-to-rating mapping tested for all four cases (first try / after hint / after attempts / failed)
-- [ ] Unit tested by simulating multi-step review sequences
+- [x] New card gets initialized with correct FSRS defaults in `card_state`
+- [x] `recordReview` with `Easy` increases interval correctly
+- [x] `recordReview` with `Again` resets interval
+- [x] `getNextCard` returns the card with the earliest due date
+- [x] Outcome-to-rating mapping tested for all four cases (first try / after hint / after attempts / failed)
+- [x] Unit tested by simulating multi-step review sequences
 
 ---
 
