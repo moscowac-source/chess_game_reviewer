@@ -7,10 +7,18 @@ Follow this process for every phase without exception.
 
 The user is not a developer. All explanations, plans, and clarifications must be written in plain language — no jargon, no code snippets, no technical terms without a plain-English explanation. When presenting a plan before starting work, describe what the code will *do* and *why*, not how it is structured internally. If a technical concept must be mentioned, explain it in one sentence a non-developer would understand.
 
-## Before Starting Any Phase
+## Current Focus — Design Polish Backlog
 
-1. **Read the plan.** Open `plans/chess-improver.md`. Read the phase you are about to start — its description, the user stories it covers, and all acceptance criteria.
-2. **Read the architectural decisions section** at the top of the plan. Every phase must stay consistent with those decisions.
+Phases 1–20 are complete. Before starting Phase 21, work through the **Design Polish Backlog** documented in `plans/chess-improver.md` — ten GitHub issues ([#28–#37](https://github.com/moscowac-source/chess_game_reviewer/issues)) that surfaced when the new design was wired up.
+
+For each issue:
+1. Flesh it out into a plan (plain-English description, schema changes, API changes, UI changes, acceptance criteria) — add it to `plans/chess-improver.md` as its own mini-phase or append it to the issue itself
+2. Execute using the same `/tdd` workflow described below
+
+## Before Starting Any Phase (or Backlog Issue)
+
+1. **Read the plan.** Open `plans/chess-improver.md`. Read the phase or backlog issue you are about to start — its description and acceptance criteria.
+2. **Read the architectural decisions section** at the top of the plan. Every piece of work must stay consistent with those decisions.
 3. **Check the previous phase is complete.** All acceptance criteria for the prior phase must be checked off before starting a new one. Do not carry forward unchecked criteria.
 
 ---

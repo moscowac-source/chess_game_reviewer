@@ -423,6 +423,36 @@ Add `user_id` to all tables. Enable Supabase Row Level Security policies so user
 
 ---
 
+## Design Polish Backlog (Next Up)
+
+After Phase 20, the app was re-skinned with the "Pattern" editorial design. Wiring the new screens to existing data surfaced ten gaps where the design asks for features the backend doesn't yet support — schema fields, new API routes, and small UI pieces. These live as GitHub issues [#28–#37](https://github.com/moscowac-source/chess_game_reviewer/issues) and are the next work to do before Phase 21.
+
+**The next step is to flesh each issue out into its own plan and then execute them, one at a time, using the standard `/tdd` workflow in `PROCESS.md`.**
+
+For each issue, the fleshing-out step should produce:
+- A short description in plain English of what the user will see change
+- The database changes needed (new columns, new tables)
+- The new or changed API routes
+- The UI screens/components that get wired up
+- Acceptance criteria that can be tested
+
+### Issues to flesh out
+
+1. [#28 — Add theme and note fields to cards](https://github.com/moscowac-source/chess_game_reviewer/issues/28)
+2. [#29 — Store CPL per card](https://github.com/moscowac-source/chess_game_reviewer/issues/29)
+3. [#30 — Build deck browser API and page](https://github.com/moscowac-source/chess_game_reviewer/issues/30)
+4. [#31 — Track daily review streak](https://github.com/moscowac-source/chess_game_reviewer/issues/31)
+5. [#32 — Compute 7-day review accuracy](https://github.com/moscowac-source/chess_game_reviewer/issues/32)
+6. [#33 — Classification breakdown for dashboard](https://github.com/moscowac-source/chess_game_reviewer/issues/33)
+7. [#34 — Recent games panel on dashboard](https://github.com/moscowac-source/chess_game_reviewer/issues/34)
+8. [#35 — Persist daily new-cards cadence from onboarding](https://github.com/moscowac-source/chess_game_reviewer/issues/35)
+9. [#36 — Real-time sync progress via background job](https://github.com/moscowac-source/chess_game_reviewer/issues/36)
+10. [#37 — Dynamic user avatar and name in nav](https://github.com/moscowac-source/chess_game_reviewer/issues/37)
+
+Order of execution is not fixed — pick them up based on priority. Issues #28, #29, and #35 are schema additions that several later tiles depend on, so those are natural early candidates.
+
+---
+
 ## Phase 21: Move Explanations (V2 Enhancement)
 
 **User stories**: TBD
