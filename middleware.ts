@@ -2,14 +2,10 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/login', '/signup']
+const PUBLIC_PATHS = ['/', '/login', '/signup']
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next()
-  }
 
   let response = NextResponse.next({
     request: { headers: request.headers },
@@ -38,6 +34,19 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Logged-in users visiting the landing or auth pages go straight to the app
+  if (user && (pathname === '/' || pathname === '/login' || pathname === '/signup')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
+  }
+
+  // Allow public paths through
+  if (PUBLIC_PATHS.some((p) => pathname === p)) {
+    return NextResponse.next()
+  }
+
+  // All other routes require auth
   if (!user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
