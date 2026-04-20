@@ -583,6 +583,34 @@ Order of execution is not fixed — pick them up based on priority. Issues #28, 
 
 ---
 
+### Mini-plan: Issue #34 — Recent games panel on dashboard
+
+**What the user will see change.** A new "Recent games" strip appears on the dashboard (between Deck breakdown and Today's queue). It lists the last up to 5 games from recent syncs, each row showing opponent name, Win/Loss/Draw outcome, how many cards that game added to the user's deck, ECO code, and a link that opens the original game on chess.com. Games synced before this change don't appear — only newly synced games — because the metadata wasn't stored before.
+
+**Database changes.** Migration `008_games_and_cards_link.sql` adds nullable columns `white`, `black`, `result`, `url`, `eco` to `games`, a `UNIQUE (user_id, url)` partial index for sync-time dedupe, and a nullable `game_id UUID` FK on `cards` (ON DELETE SET NULL).
+
+**Sync pipeline.** For each PGN processed, the orchestrator now parses the PGN headers via `parsePgnHeaders`, looks up or inserts a `games` row (keyed on `(user_id, url)` when a Link header is present), and passes the resulting game id into `generateCards` so new cards carry `game_id`. Pre-existing cards are not modified.
+
+**API changes.** New route `GET /api/games/recent?limit=5`. Auth-scoped (401 when unauthenticated), validates `limit` as integer 1–10 (default 5, invalid → 400). Returns an array of `{ id, played_at, white, black, result, url, eco, cardCount, opponent, outcome }`. `cardCount` is per-user (scoped via `card_state`). `opponent` and `outcome` (`win`/`loss`/`draw`/`unknown`) are pre-computed server-side by case-insensitively matching the user's `chess_com_username` against the white/black headers.
+
+**UI changes.** Dashboard fetches `/api/games/recent?limit=5` on load and renders a Recent games section with one row per game. Each row is an `<a target="_blank">` when `url` is present, otherwise a plain non-clickable row. Panel is hidden entirely when the list is empty.
+
+**Acceptance criteria.**
+- [x] Migration `008_games_and_cards_link.sql` adds `white`, `black`, `result`, `url`, `eco` to `games`; adds `UNIQUE (user_id, url)`; adds nullable `game_id` to `cards`
+- [x] `types/database.ts` reflects the new columns
+- [x] Sync pipeline inserts/upserts a `games` row per processed PGN with all available header fields populated
+- [x] Newly generated cards have `game_id` set; pre-existing cards are not modified
+- [x] Re-syncing the same game url does not create a duplicate `games` row
+- [x] `GET /api/games/recent?limit=5` returns up to 5 most recent games with per-user `cardCount`
+- [x] Unauthenticated requests to `/api/games/recent` return 401
+- [x] `limit` outside 1–10 returns 400; missing/invalid defaults are handled
+- [x] Dashboard renders a Recent games panel with opponent, outcome (Win/Loss/Draw), card count, ECO, and a chess.com link per row
+- [x] Panel is hidden when no recent games exist
+- [x] Unit tests cover PGN header parsing (success + missing), opponent detection (case-insensitive), outcome mapping for both colors and draws
+- [x] Integration test: sync run followed by `/api/games/recent` returns the expected rows with correct `cardCount`
+
+---
+
 ### Mini-plan: Issue #33 — Classification breakdown for dashboard
 
 **What the user will see change.** Below the dashboard stats strip, a new "Deck breakdown" section shows how the user's full deck splits across the four classifications — Blunders, Mistakes, Greats, Brilliants — as a row of four small tiles. If the deck is empty, all four read `0`.
