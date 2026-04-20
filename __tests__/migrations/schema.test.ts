@@ -129,3 +129,26 @@ test('RLS migration enables row level security on cards table', () => {
   const sql = getRlsSQL()
   expect(sql).toContain('ALTER TABLE "cards" ENABLE ROW LEVEL SECURITY')
 })
+
+// ---------------------------------------------------------------------------
+// Issue #28: theme + note on cards
+// ---------------------------------------------------------------------------
+
+const THEME_NOTE_MIGRATION_PATH = join(
+  process.cwd(),
+  'supabase/migrations/005_cards_theme_note.sql',
+)
+
+test('theme+note migration file exists', () => {
+  expect(existsSync(THEME_NOTE_MIGRATION_PATH)).toBe(true)
+})
+
+test('theme+note migration adds nullable theme and note columns to cards', () => {
+  const sql = readFileSync(THEME_NOTE_MIGRATION_PATH, 'utf8')
+  expect(sql).toMatch(/ALTER TABLE\s+"cards"/i)
+  expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS\s+"theme"\s+TEXT/i)
+  expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS\s+"note"\s+TEXT/i)
+  // Nullable — no NOT NULL on either new column
+  expect(sql).not.toMatch(/"theme"\s+TEXT\s+NOT NULL/i)
+  expect(sql).not.toMatch(/"note"\s+TEXT\s+NOT NULL/i)
+})

@@ -214,7 +214,7 @@ describe('buildReviewSession', () => {
       { card_id: 'card-1', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
     ]
     const cards: Row[] = [
-      { id: 'card-1', fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3', correct_move: 'Bb5', classification: 'blunder' },
+      { id: 'card-1', fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3', correct_move: 'Bb5', classification: 'blunder', theme: 'opening', note: null },
     ]
     const { db } = makeMockDb(cardStates, cards)
 
@@ -226,6 +226,28 @@ describe('buildReviewSession', () => {
       correctMove: 'Bb5',
       classification: 'blunder',
       isNew: false,
+      theme: 'opening',
+      note: null,
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // Issue #28: session passes theme + note through from cards row
+  // -------------------------------------------------------------------------
+  it('passes theme and note through from the cards row', async () => {
+    const cardStates: Row[] = [
+      { card_id: 'card-1', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+    ]
+    const cards: Row[] = [
+      { id: 'card-1', fen: 'fen1', correct_move: 'e4', classification: 'blunder', theme: 'tactics', note: "Don't trade the fianchetto bishop" },
+    ]
+    const { db } = makeMockDb(cardStates, cards)
+
+    const session = await buildReviewSession(USER, db as never)
+
+    expect(session.cards[0]).toMatchObject({
+      theme: 'tactics',
+      note: "Don't trade the fianchetto bishop",
     })
   })
 

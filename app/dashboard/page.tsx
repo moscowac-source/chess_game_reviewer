@@ -18,6 +18,8 @@ interface SessionCard {
   correctMove: string
   classification: string
   isNew: boolean
+  theme: string | null
+  note: string | null
 }
 
 interface ReviewSession {
@@ -111,10 +113,15 @@ export default function DashboardPage() {
               >
                 <MiniBoard fen={nextCard.fen} size={88} />
                 <div>
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
                     <Tag kind={classificationToKind(nextCard.classification)}>{nextCard.classification}</Tag>
+                    {nextCard.theme && (
+                      <span className="mono" style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                        {nextCard.theme}
+                      </span>
+                    )}
                     {nextCard.isNew && (
-                      <span className="mono" style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', alignSelf: 'center' }}>
+                      <span className="mono" style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                         New
                       </span>
                     )}
@@ -124,7 +131,11 @@ export default function DashboardPage() {
                       ? 'Find the move you missed'
                       : 'Replay your best move'}
                   </div>
-                  {/* theme/note not available yet — requires schema addition */}
+                  {nextCard.note && (
+                    <div style={{ marginTop: 8, fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5, fontStyle: 'italic' }}>
+                      {nextCard.note}
+                    </div>
+                  )}
                 </div>
               </button>
             </div>
@@ -179,6 +190,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)' }}>
                       {c.isNew ? 'New' : 'Review'} · {c.correctMove}
+                      {c.theme && <> · {c.theme}</>}
                     </div>
                   </div>
                   <Tag kind={classificationToKind(c.classification)}>{c.classification}</Tag>

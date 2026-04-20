@@ -6,6 +6,8 @@ export interface Card {
   correct_move: string
   classification: CardClassification
   created_at: string
+  theme: string | null
+  note: string | null
 }
 
 export type CardStateValue = 'new' | 'learning' | 'review' | 'relearning'

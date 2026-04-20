@@ -11,6 +11,8 @@ interface SessionCard {
   correctMove: string
   classification: string
   isNew: boolean
+  theme: string | null
+  note: string | null
 }
 
 interface ReviewSession {
@@ -81,7 +83,14 @@ function SidePanel({
       {/* Card context — always visible */}
       <div style={{ border: '1px solid var(--line)', padding: '18px 20px', marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Tag kind={kind}>{card.classification}</Tag>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Tag kind={kind}>{card.classification}</Tag>
+            {card.theme && (
+              <span className="mono" style={{ fontSize: 10, color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                {card.theme}
+              </span>
+            )}
+          </div>
           {card.isNew && (
             <span className="mono" style={{ fontSize: 10, color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>New</span>
           )}
@@ -91,6 +100,11 @@ function SidePanel({
           {' · '}
           {isPositive ? 'replay the move that made this work.' : 'find the move you should have played.'}
         </div>
+        {card.note && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)', fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.55, fontStyle: 'italic' }}>
+            {card.note}
+          </div>
+        )}
       </div>
 
       {/* Phase content */}

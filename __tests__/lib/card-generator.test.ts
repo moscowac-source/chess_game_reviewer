@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { generateCards } from '@/lib/card-generator'
+import { generateCards, classifyTheme } from '@/lib/card-generator'
 import type { PositionAnalysis } from '@/lib/stockfish-analyzer'
 
 // Builds a fake database that remembers what cards already exist
@@ -106,6 +106,39 @@ describe('generateCards', () => {
   })
 
   // -------------------------------------------------------------------------
+  // Issue #28: each inserted card carries a theme computed from the FEN
+  // -------------------------------------------------------------------------
+  it('writes a theme on each new card based on the FEN', async () => {
+    const { db, insertedRows } = makeMockDb()
+    const OPENING_FEN = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1'
+    const ENDGAME_FEN = '8/8/4k3/3p4/3P4/4K3/1P3P2/R7 w - - 0 40'
+    const positions = [
+      makePosition(OPENING_FEN, 'e5', 'blunder'),
+      makePosition(ENDGAME_FEN, 'Kd6', 'mistake'),
+    ]
+
+    await generateCards(positions, db as never)
+
+    expect(insertedRows).toHaveLength(2)
+    expect(insertedRows.find((r) => r.fen === OPENING_FEN)).toMatchObject({
+      theme: 'opening',
+    })
+    expect(insertedRows.find((r) => r.fen === ENDGAME_FEN)).toMatchObject({
+      theme: 'endgame',
+    })
+  })
+
+  it('writes note as null on each new card (placeholder for future AI notes)', async () => {
+    const { db, insertedRows } = makeMockDb()
+    const positions = [makePosition(FEN_A, 'e5', 'blunder')]
+
+    await generateCards(positions, db as never)
+
+    expect(insertedRows).toHaveLength(1)
+    expect(insertedRows[0]).toHaveProperty('note', null)
+  })
+
+  // -------------------------------------------------------------------------
   // Test 5: mix — 3 positions, one FEN already exists → 2 created, 1 skipped
   // -------------------------------------------------------------------------
   it('handles a mix of new and already-seen positions', async () => {
@@ -123,5 +156,28 @@ describe('generateCards', () => {
     expect(result.skipped).toBe(1)
     expect(insertedRows).toHaveLength(2)
     expect(insertedRows.map((r) => r.fen)).not.toContain(FEN_B)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Issue #28: classifyTheme heuristic
+// ---------------------------------------------------------------------------
+describe('classifyTheme', () => {
+  // Starting-position FEN, fullmove counter = 1 → opening
+  it('returns opening when fullmove counter is <= 12', () => {
+    const fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+    expect(classifyTheme(fen)).toBe('opening')
+  })
+
+  // King + rook + 3 pawns vs king + 2 pawns: 5+2+3 = 10 material, fullmove 40 → endgame
+  it('returns endgame when non-king material <= 14 and past opening', () => {
+    const fen = '8/8/4k3/3p4/3P4/4K3/1P3P2/R7 w - - 0 40'
+    expect(classifyTheme(fen)).toBe('endgame')
+  })
+
+  // Middlegame: fullmove 20, both sides still have queen+rooks+minors+pawns
+  it('returns tactics when past opening and material is still high', () => {
+    const fen = 'r1bq1rk1/pp2bppp/2n1pn2/2pp4/3P4/2NBPN2/PPP2PPP/R1BQ1RK1 w - - 0 20'
+    expect(classifyTheme(fen)).toBe('tactics')
   })
 })

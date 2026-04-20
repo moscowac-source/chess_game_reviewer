@@ -6,6 +6,28 @@ export interface GenerateCardsResult {
   skipped: number
 }
 
+export type CardTheme = 'opening' | 'endgame' | 'tactics'
+
+const PIECE_VALUES: Record<string, number> = {
+  p: 1, n: 3, b: 3, r: 5, q: 9,
+}
+
+export function classifyTheme(fen: string): CardTheme {
+  const parts = fen.split(' ')
+  const fullmove = parseInt(parts[5] ?? '1', 10)
+  if (fullmove <= 12) return 'opening'
+
+  const placement = parts[0] ?? ''
+  let material = 0
+  for (const ch of placement) {
+    const value = PIECE_VALUES[ch.toLowerCase()]
+    if (value !== undefined) material += value
+  }
+  if (material <= 14) return 'endgame'
+
+  return 'tactics'
+}
+
 export async function generateCards(
   positions: PositionAnalysis[],
   db: SupabaseClient,
@@ -31,6 +53,8 @@ export async function generateCards(
       fen: p.fen,
       correct_move: p.movePlayed,
       classification: p.classification,
+      theme: classifyTheme(p.fen),
+      note: null,
     }))
     const { error: insertError } = await db.from('cards').insert(rows)
     if (insertError) throw insertError
