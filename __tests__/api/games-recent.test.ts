@@ -23,9 +23,23 @@ function makeMockDb(
   games: GameRow[] = [],
   cardStates: CardStateRow[] = [],
   cards: CardRow[] = [],
+  chessComUsername: string | null = 'alice',
 ) {
   return {
     from: (table: string) => {
+      if (table === 'users') {
+        return {
+          select: (_cols: string) => ({
+            eq: (_col: string, _val: string) => ({
+              single: () =>
+                Promise.resolve({
+                  data: { chess_com_username: chessComUsername },
+                  error: null,
+                }),
+            }),
+          }),
+        }
+      }
       if (table === 'games') {
         const filters: Record<string, string> = {}
         let order: { col: string; desc: boolean } | null = null
@@ -244,6 +258,72 @@ describe('GET /api/games/recent', () => {
     })
     const body = await response.json()
     expect(body[0].cardCount).toBe(0)
+  })
+
+  it('reports opponent and outcome=win when user played white and result is 1-0', async () => {
+    const games = [makeGame({ id: 'g1', white: 'alice', black: 'bob', result: '1-0' })]
+    const db = makeMockDb(games, [], [], 'alice')
+    const response = await GET(makeReq(), {
+      db: db as never,
+      authFn: async () => ({ id: USER }),
+    })
+    const body = await response.json()
+    expect(body[0]).toMatchObject({ opponent: 'bob', outcome: 'win' })
+  })
+
+  it('reports outcome=loss when user played white and result is 0-1', async () => {
+    const games = [makeGame({ id: 'g1', white: 'alice', black: 'bob', result: '0-1' })]
+    const db = makeMockDb(games, [], [], 'alice')
+    const response = await GET(makeReq(), {
+      db: db as never,
+      authFn: async () => ({ id: USER }),
+    })
+    const body = await response.json()
+    expect(body[0]).toMatchObject({ opponent: 'bob', outcome: 'loss' })
+  })
+
+  it('reports outcome=win when user played black and result is 0-1', async () => {
+    const games = [makeGame({ id: 'g1', white: 'alice', black: 'bob', result: '0-1' })]
+    const db = makeMockDb(games, [], [], 'bob')
+    const response = await GET(makeReq(), {
+      db: db as never,
+      authFn: async () => ({ id: USER }),
+    })
+    const body = await response.json()
+    expect(body[0]).toMatchObject({ opponent: 'alice', outcome: 'win' })
+  })
+
+  it('reports outcome=draw for a 1/2-1/2 result', async () => {
+    const games = [makeGame({ id: 'g1', white: 'alice', black: 'bob', result: '1/2-1/2' })]
+    const db = makeMockDb(games, [], [], 'alice')
+    const response = await GET(makeReq(), {
+      db: db as never,
+      authFn: async () => ({ id: USER }),
+    })
+    const body = await response.json()
+    expect(body[0]).toMatchObject({ outcome: 'draw' })
+  })
+
+  it('matches chess_com_username case-insensitively against white/black names', async () => {
+    const games = [makeGame({ id: 'g1', white: 'Alice', black: 'bob', result: '1-0' })]
+    const db = makeMockDb(games, [], [], 'alice')
+    const response = await GET(makeReq(), {
+      db: db as never,
+      authFn: async () => ({ id: USER }),
+    })
+    const body = await response.json()
+    expect(body[0]).toMatchObject({ opponent: 'bob', outcome: 'win' })
+  })
+
+  it('reports outcome=unknown and opponent=null when the user matches neither side', async () => {
+    const games = [makeGame({ id: 'g1', white: 'charlie', black: 'dave', result: '1-0' })]
+    const db = makeMockDb(games, [], [], 'alice')
+    const response = await GET(makeReq(), {
+      db: db as never,
+      authFn: async () => ({ id: USER }),
+    })
+    const body = await response.json()
+    expect(body[0]).toMatchObject({ opponent: null, outcome: 'unknown' })
   })
 
   it('only returns games for the authenticated user', async () => {

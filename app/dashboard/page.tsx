@@ -19,6 +19,26 @@ interface ClassificationCounts {
   brilliant: number
 }
 
+interface RecentGame {
+  id: string
+  played_at: string
+  white: string | null
+  black: string | null
+  result: string | null
+  url: string | null
+  eco: string | null
+  opponent: string | null
+  outcome: 'win' | 'loss' | 'draw' | 'unknown'
+  cardCount: number
+}
+
+function outcomeLabel(outcome: RecentGame['outcome']): string {
+  if (outcome === 'win') return 'Win'
+  if (outcome === 'loss') return 'Loss'
+  if (outcome === 'draw') return 'Draw'
+  return '—'
+}
+
 interface SessionCard {
   cardId: string
   fen: string
@@ -57,6 +77,7 @@ export default function DashboardPage() {
   const [streak, setStreak] = useState<number | null>(null)
   const [accuracy, setAccuracy] = useState<number | null>(null)
   const [breakdown, setBreakdown] = useState<ClassificationCounts | null>(null)
+  const [recentGames, setRecentGames] = useState<RecentGame[]>([])
 
   useEffect(() => {
     fetch('/api/review/counts')
@@ -97,6 +118,13 @@ export default function DashboardPage() {
         ) {
           setBreakdown(data)
         }
+      })
+      .catch(() => {})
+
+    fetch('/api/games/recent?limit=5')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (Array.isArray(data)) setRecentGames(data as RecentGame[])
       })
       .catch(() => {})
   }, [])
@@ -213,6 +241,72 @@ export default function DashboardPage() {
                 <div className="serif" style={{ fontSize: 36, letterSpacing: '-0.02em', lineHeight: 1, fontWeight: 400 }}>{breakdown.brilliant}</div>
                 <div className="mono" style={{ marginTop: 8, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>Brilliants</div>
               </div>
+            </div>
+          </section>
+        )}
+
+        {/* Recent games */}
+        {recentGames.length > 0 && (
+          <section data-testid="recent-games" style={{ marginTop: 48 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 }}>
+              <h2 className="serif" style={{ fontSize: 28, letterSpacing: '-0.02em', margin: 0, fontWeight: 400 }}>Recent games</h2>
+            </div>
+            <div style={{ border: '1px solid var(--line)' }}>
+              {recentGames.map((g, i) => {
+                const row = (
+                  <>
+                    <div style={{ display: 'grid', gap: 4 }}>
+                      <div className="serif" style={{ fontSize: 17, letterSpacing: '-0.01em' }}>
+                        vs {g.opponent ?? 'Unknown'}
+                      </div>
+                      <div className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+                        {new Date(g.played_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="mono" style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+                      {outcomeLabel(g.outcome)}
+                    </div>
+                    <div className="mono" style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+                      {g.cardCount} {g.cardCount === 1 ? 'card' : 'cards'}
+                    </div>
+                    <div className="mono" style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+                      {g.eco ?? ''}
+                    </div>
+                  </>
+                )
+                const rowStyle = {
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto auto auto',
+                  alignItems: 'center',
+                  gap: 20,
+                  padding: '14px 18px',
+                  borderBottom: i < recentGames.length - 1 ? '1px solid var(--line)' : 'none',
+                  textAlign: 'left' as const,
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  background: 'var(--bg)',
+                }
+                return g.url ? (
+                  <a
+                    key={g.id}
+                    data-testid={`recent-game-${g.id}`}
+                    href={g.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={rowStyle}
+                  >
+                    {row}
+                  </a>
+                ) : (
+                  <div
+                    key={g.id}
+                    data-testid={`recent-game-${g.id}`}
+                    style={rowStyle}
+                  >
+                    {row}
+                  </div>
+                )
+              })}
             </div>
           </section>
         )}

@@ -21,6 +21,34 @@ interface GameRow {
 const DEFAULT_LIMIT = 5
 const MAX_LIMIT = 10
 
+type Outcome = 'win' | 'loss' | 'draw' | 'unknown'
+
+function deriveOpponentAndOutcome(
+  white: string | null,
+  black: string | null,
+  result: string | null,
+  username: string | null,
+): { opponent: string | null; outcome: Outcome } {
+  if (result === '1/2-1/2') {
+    // Still try to identify opponent
+    const u = username?.toLowerCase() ?? null
+    if (u && white && white.toLowerCase() === u) return { opponent: black, outcome: 'draw' }
+    if (u && black && black.toLowerCase() === u) return { opponent: white, outcome: 'draw' }
+    return { opponent: null, outcome: 'draw' }
+  }
+  const u = username?.toLowerCase() ?? null
+  let userSide: 'white' | 'black' | null = null
+  if (u && white && white.toLowerCase() === u) userSide = 'white'
+  else if (u && black && black.toLowerCase() === u) userSide = 'black'
+
+  if (!userSide) return { opponent: null, outcome: 'unknown' }
+
+  const opponent = userSide === 'white' ? black : white
+  if (result === '1-0') return { opponent, outcome: userSide === 'white' ? 'win' : 'loss' }
+  if (result === '0-1') return { opponent, outcome: userSide === 'black' ? 'win' : 'loss' }
+  return { opponent, outcome: 'unknown' }
+}
+
 export async function GET(req: Request, deps: RecentDeps = {}) {
   const db = deps.db ?? supabase
   const authFn = deps.authFn ?? getSessionUser
@@ -58,6 +86,13 @@ export async function GET(req: Request, deps: RecentDeps = {}) {
   const gameList = games ?? []
   if (gameList.length === 0) return NextResponse.json([])
 
+  const { data: userRow } = await db
+    .from('users')
+    .select('chess_com_username')
+    .eq('id', user.id)
+    .single()
+  const username = (userRow as { chess_com_username: string | null } | null)?.chess_com_username ?? null
+
   const { data: stateRows, error: stateError } = await db
     .from('card_state')
     .select('card_id')
@@ -90,6 +125,9 @@ export async function GET(req: Request, deps: RecentDeps = {}) {
   }
 
   return NextResponse.json(
-    gameList.map((g) => ({ ...g, cardCount: countByGame.get(g.id) ?? 0 })),
+    gameList.map((g) => {
+      const { opponent, outcome } = deriveOpponentAndOutcome(g.white, g.black, g.result, username)
+      return { ...g, cardCount: countByGame.get(g.id) ?? 0, opponent, outcome }
+    }),
   )
 }
