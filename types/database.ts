@@ -9,6 +9,7 @@ export interface Card {
   theme: string | null
   note: string | null
   cpl: number | null
+  game_id: string | null
 }
 
 export type CardStateValue = 'new' | 'learning' | 'review' | 'relearning'
@@ -31,6 +32,11 @@ export interface Game {
   source: 'chess.com'
   played_at: string
   processed_at: string | null
+  white: string | null
+  black: string | null
+  result: string | null
+  url: string | null
+  eco: string | null
 }
 
 export interface User {

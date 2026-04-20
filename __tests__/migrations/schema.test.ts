@@ -190,3 +190,40 @@ test('daily_new_limit migration adds NOT NULL integer with default 10 to users',
   expect(sql).toMatch(/NOT NULL/i)
   expect(sql).toMatch(/DEFAULT\s+10/i)
 })
+
+// ---------------------------------------------------------------------------
+// Issue #34: games metadata + cards.game_id link
+// ---------------------------------------------------------------------------
+
+const GAMES_LINK_MIGRATION_PATH = join(
+  process.cwd(),
+  'supabase/migrations/008_games_and_cards_link.sql',
+)
+
+test('games+cards-link migration file exists', () => {
+  expect(existsSync(GAMES_LINK_MIGRATION_PATH)).toBe(true)
+})
+
+test('games+cards-link migration adds nullable metadata columns to games', () => {
+  const sql = readFileSync(GAMES_LINK_MIGRATION_PATH, 'utf8')
+  expect(sql).toMatch(/ALTER TABLE\s+"games"/i)
+  for (const col of ['white', 'black', 'result', 'url', 'eco']) {
+    expect(sql).toMatch(new RegExp(`ADD COLUMN IF NOT EXISTS\\s+"${col}"\\s+TEXT`, 'i'))
+    expect(sql).not.toMatch(new RegExp(`"${col}"\\s+TEXT\\s+NOT NULL`, 'i'))
+  }
+})
+
+test('games+cards-link migration creates a unique index on (user_id, url)', () => {
+  const sql = readFileSync(GAMES_LINK_MIGRATION_PATH, 'utf8')
+  expect(sql).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS[\s\S]*"games"[\s\S]*"user_id"[\s\S]*"url"/i)
+  expect(sql).toMatch(/WHERE\s+"url"\s+IS NOT NULL/i)
+})
+
+test('games+cards-link migration adds nullable game_id FK on cards with ON DELETE SET NULL', () => {
+  const sql = readFileSync(GAMES_LINK_MIGRATION_PATH, 'utf8')
+  expect(sql).toMatch(/ALTER TABLE\s+"cards"/i)
+  expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS\s+"game_id"\s+UUID/i)
+  expect(sql).toMatch(/REFERENCES\s+"games"\s*\(\s*"id"\s*\)/i)
+  expect(sql).toMatch(/ON DELETE SET NULL/i)
+  expect(sql).not.toMatch(/"game_id"\s+UUID\s+NOT NULL/i)
+})
