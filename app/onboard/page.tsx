@@ -248,8 +248,21 @@ function ImportStep({ username, onDone }: { username: string; onDone: () => void
 
 function CadenceStep({ onDone }: { onDone: () => void }) {
   const [newPerDay, setNewPerDay] = useState(12)
+  const [saving, setSaving] = useState(false)
 
-  // TODO: persist newPerDay to users table (requires schema addition: daily_new_limit column)
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await fetch('/api/user/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ daily_new_limit: newPerDay }),
+      })
+    } finally {
+      setSaving(false)
+      onDone()
+    }
+  }
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
@@ -283,11 +296,10 @@ function CadenceStep({ onDone }: { onDone: () => void }) {
       </div>
 
       <div style={{ marginTop: 28, display: 'flex', gap: 12, alignItems: 'center' }}>
-        <Button size="lg" onClick={onDone}>Enter the deck →</Button>
-        <Button size="lg" variant="secondary" onClick={onDone}>Skip for now</Button>
-        <span className="mono" style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.12em' }}>
-          Cadence saving requires a schema update (coming soon)
-        </span>
+        <Button size="lg" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving…' : 'Enter the deck →'}
+        </Button>
+        <Button size="lg" variant="secondary" onClick={onDone} disabled={saving}>Skip for now</Button>
       </div>
     </div>
   )

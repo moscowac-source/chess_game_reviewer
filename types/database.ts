@@ -38,6 +38,7 @@ export interface User {
   email: string
   chess_com_username: string | null
   created_at: string
+  daily_new_limit: number
 }
 
 export type ReviewRating = 'easy' | 'good' | 'hard' | 'again'

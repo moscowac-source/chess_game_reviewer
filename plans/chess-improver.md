@@ -525,14 +525,14 @@ Order of execution is not fixed — pick them up based on priority. Issues #28, 
 - A small "Settings" link is added to the dashboard (footer) opening a dialog or page with the same slider, which also calls `PATCH /api/user/settings`.
 
 **Acceptance criteria.**
-- [ ] Migration `007_users_daily_new_limit.sql` adds `daily_new_limit INT NOT NULL DEFAULT 10` to `users`
-- [ ] `types/database.ts` reflects the new column
-- [ ] `PATCH /api/user/settings` validates 4 ≤ `daily_new_limit` ≤ 30 and updates the current user row only
-- [ ] Onboarding CadenceStep saves the slider value by calling the new endpoint
-- [ ] Review session query uses the user's `daily_new_limit` instead of the hardcoded cap
-- [ ] Dashboard has a Settings entry point where cadence can be changed later
-- [ ] Unauthenticated requests to `PATCH /api/user/settings` return 401
-- [ ] Integration test — changing the cadence changes how many new cards a review session returns
+- [x] Migration `007_users_daily_new_limit.sql` adds `daily_new_limit INT NOT NULL DEFAULT 10` to `users`
+- [x] `types/database.ts` reflects the new column
+- [x] `PATCH /api/user/settings` validates 4 ≤ `daily_new_limit` ≤ 30 and updates the current user row only
+- [x] Onboarding CadenceStep saves the slider value by calling the new endpoint
+- [x] Review session query uses the user's `daily_new_limit` instead of the hardcoded cap
+- [x] Dashboard has a Settings entry point where cadence can be changed later
+- [x] Unauthenticated requests to `PATCH /api/user/settings` return 401
+- [x] Integration test — changing the cadence changes how many new cards a review session returns
 
 ---
 

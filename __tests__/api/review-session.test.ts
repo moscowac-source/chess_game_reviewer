@@ -14,7 +14,7 @@ const PAST = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
 const TODAY = new Date().toISOString()
 const USER = '00000000-0000-0000-0000-000000000001'
 
-function makeMockDb(cardStates: Row[] = [], cards: Row[] = [], reviewLogs: Row[] = []) {
+function makeMockDb(cardStates: Row[] = [], cards: Row[] = [], reviewLogs: Row[] = [], userRow: Row | null = null) {
   return {
     from: (table: string) => {
       if (table === 'card_state') {
@@ -46,6 +46,15 @@ function makeMockDb(cardStates: Row[] = [], cards: Row[] = [], reviewLogs: Row[]
                 data: cards.filter((c) => vals.includes(c['id'])),
                 error: null,
               }),
+          }),
+        }
+      }
+      if (table === 'users') {
+        return {
+          select: (_cols: string) => ({
+            eq: (_col: string, _val: unknown) => ({
+              single: () => Promise.resolve({ data: userRow, error: null }),
+            }),
           }),
         }
       }
@@ -127,5 +136,34 @@ describe('GET /api/review/session', () => {
       authFn: async () => null,
     })
     expect(response.status).toBe(401)
+  })
+
+  // Issue #35: session enforces the user's stored daily_new_limit, not a hardcoded cap
+  it("caps new cards at the user's daily_new_limit from the users table", async () => {
+    // 10 new cards available; users row says daily_new_limit = 7
+    const cardStates: Row[] = Array.from({ length: 10 }, (_, i) => ({
+      card_id: `new-card-${i}`,
+      user_id: USER,
+      state: 'new',
+      due_date: TODAY,
+      stability: 0,
+      difficulty: 0,
+      review_count: 0,
+    }))
+    const cards: Row[] = Array.from({ length: 10 }, (_, i) => ({
+      id: `new-card-${i}`,
+      fen: `fen-${i}`,
+      correct_move: 'e4',
+      classification: 'blunder',
+    }))
+    const db = makeMockDb(cardStates, cards, [], { daily_new_limit: 7 })
+
+    const response = await GET(makeRequest(), {
+      db: db as never,
+      authFn: async () => ({ id: USER }),
+    })
+    const body = await response.json()
+
+    expect(body.cards).toHaveLength(7)
   })
 })

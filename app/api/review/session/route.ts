@@ -25,6 +25,17 @@ export async function GET(req: Request, deps: SessionDeps = {}) {
     ? (modeParam as ReviewMode)
     : 'standard'
 
-  const session = await buildReviewSession(user.id, db, { mode })
+  const { data: userRow } = await db
+    .from('users')
+    .select('daily_new_limit')
+    .eq('id', user.id)
+    .single()
+
+  const dailyNewLimit =
+    typeof (userRow as { daily_new_limit?: number } | null)?.daily_new_limit === 'number'
+      ? (userRow as { daily_new_limit: number }).daily_new_limit
+      : 10
+
+  const session = await buildReviewSession(user.id, db, { mode, dailyNewLimit })
   return NextResponse.json(session)
 }

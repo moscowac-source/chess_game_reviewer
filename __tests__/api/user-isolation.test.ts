@@ -114,6 +114,15 @@ function makeIsolatedDb(
           },
         }
       }
+      if (table === 'users') {
+        return {
+          select: (_cols: string) => ({
+            eq: (_col: string, _val: unknown) => ({
+              single: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+        }
+      }
       if (table === 'sync_log') {
         return {
           select: (_cols: string) => ({

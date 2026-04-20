@@ -169,3 +169,24 @@ test('cpl migration adds nullable cpl integer column to cards', () => {
   expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS\s+"cpl"\s+INTEGER/i)
   expect(sql).not.toMatch(/"cpl"\s+INTEGER\s+NOT NULL/i)
 })
+
+// ---------------------------------------------------------------------------
+// Issue #35: daily_new_limit on users
+// ---------------------------------------------------------------------------
+
+const DAILY_LIMIT_MIGRATION_PATH = join(
+  process.cwd(),
+  'supabase/migrations/007_users_daily_new_limit.sql',
+)
+
+test('daily_new_limit migration file exists', () => {
+  expect(existsSync(DAILY_LIMIT_MIGRATION_PATH)).toBe(true)
+})
+
+test('daily_new_limit migration adds NOT NULL integer with default 10 to users', () => {
+  const sql = readFileSync(DAILY_LIMIT_MIGRATION_PATH, 'utf8')
+  expect(sql).toMatch(/ALTER TABLE\s+"users"/i)
+  expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS\s+"daily_new_limit"\s+INTEGER/i)
+  expect(sql).toMatch(/NOT NULL/i)
+  expect(sql).toMatch(/DEFAULT\s+10/i)
+})

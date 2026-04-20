@@ -210,9 +210,14 @@ export default function DashboardPage() {
                 : `Synced ${new Date(syncStatus.completed_at ?? syncStatus.started_at).toLocaleString()} · ${syncStatus.games_processed} games · ${syncStatus.cards_created} cards`
               }
             </div>
-            <button onClick={() => router.push('/sync')} className="mono" style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-              Sync log →
-            </button>
+            <div style={{ display: 'flex', gap: 20 }}>
+              <button onClick={() => router.push('/settings')} className="mono" style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+                Settings →
+              </button>
+              <button onClick={() => router.push('/sync')} className="mono" style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+                Sync log →
+              </button>
+            </div>
           </section>
         )}
       </Page>
