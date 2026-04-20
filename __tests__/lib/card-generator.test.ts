@@ -138,6 +138,27 @@ describe('generateCards', () => {
     expect(insertedRows[0]).toHaveProperty('note', null)
   })
 
+  // Issue #34: when a gameId is supplied, each new card is linked to that game
+  it('writes game_id on each new card when a gameId is supplied', async () => {
+    const { db, insertedRows } = makeMockDb()
+    const positions = [makePosition(FEN_A, 'e5', 'blunder')]
+
+    await generateCards(positions, db as never, 'game-abc')
+
+    expect(insertedRows).toHaveLength(1)
+    expect(insertedRows[0]).toMatchObject({ game_id: 'game-abc' })
+  })
+
+  it('writes game_id as null on each new card when no gameId is supplied', async () => {
+    const { db, insertedRows } = makeMockDb()
+    const positions = [makePosition(FEN_A, 'e5', 'blunder')]
+
+    await generateCards(positions, db as never)
+
+    expect(insertedRows).toHaveLength(1)
+    expect(insertedRows[0]).toHaveProperty('game_id', null)
+  })
+
   // Issue #29: the cpl value from the PositionAnalysis is persisted on the card
   it('writes the cpl value from the PositionAnalysis on each new card', async () => {
     const { db, insertedRows } = makeMockDb()

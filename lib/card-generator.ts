@@ -31,6 +31,7 @@ export function classifyTheme(fen: string): CardTheme {
 export async function generateCards(
   positions: PositionAnalysis[],
   db: SupabaseClient,
+  gameId?: string | null,
 ): Promise<GenerateCardsResult> {
   const classified = positions.filter((p) => p.classification !== null)
 
@@ -56,6 +57,7 @@ export async function generateCards(
       theme: classifyTheme(p.fen),
       note: null,
       cpl: p.cpl,
+      game_id: gameId ?? null,
     }))
     const { error: insertError } = await db.from('cards').insert(rows)
     if (insertError) throw insertError

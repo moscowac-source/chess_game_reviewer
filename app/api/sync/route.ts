@@ -76,6 +76,7 @@ export async function POST(req: Request, deps: SyncDeps = {}) {
 
   const result = await runSync(mode, {
     username: user.chess_com_username,
+    userId: user.id,
     db: activeDb,
     gamesFetcher: deps.gamesFetcher,
     engineFactory: deps.engineFactory,
@@ -99,6 +100,7 @@ export async function GET(req: Request) {
 
   const result = await runSync(mode, {
     username: user.chess_com_username ?? '',
+    userId: user.id,
     db: serverDb as unknown as SupabaseClient,
     syncLogger: makeSupabaseSyncLogger(serverDb as unknown as SupabaseClient, mode, user.id),
   })

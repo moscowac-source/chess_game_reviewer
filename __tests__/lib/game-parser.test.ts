@@ -1,4 +1,4 @@
-import { parseGame } from '../../lib/game-parser'
+import { parseGame, parsePgnHeaders } from '../../lib/game-parser'
 
 // Fixture: 3-move Ruy Lopez opening fragment, result wildcard
 const SHORT_GAME_PGN = `[Event "Test"]
@@ -83,5 +83,59 @@ describe('parseGame', () => {
     const first = parseGame(SHORT_GAME_PGN)
     const second = parseGame(SHORT_GAME_PGN)
     expect(first).toEqual(second)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Issue #34: parsePgnHeaders extracts Chess.com game metadata from headers
+// ---------------------------------------------------------------------------
+
+const FULL_CHESSCOM_PGN = `[Event "Live Chess"]
+[Site "Chess.com"]
+[Date "2024.03.14"]
+[White "alice"]
+[Black "bob"]
+[Result "1-0"]
+[ECO "B12"]
+[UTCDate "2024.03.14"]
+[UTCTime "18:45:12"]
+[Link "https://www.chess.com/game/live/123456789"]
+
+1. e4 c6 1-0`
+
+const MISSING_HEADERS_PGN = `[Event "Test"]
+[White "alice"]
+[Black "bob"]
+[Result "1-0"]
+
+1. e4 e5 1-0`
+
+describe('parsePgnHeaders', () => {
+  it('extracts white, black, result, url, and eco from a full Chess.com PGN', () => {
+    const headers = parsePgnHeaders(FULL_CHESSCOM_PGN)
+    expect(headers.white).toBe('alice')
+    expect(headers.black).toBe('bob')
+    expect(headers.result).toBe('1-0')
+    expect(headers.url).toBe('https://www.chess.com/game/live/123456789')
+    expect(headers.eco).toBe('B12')
+  })
+
+  it('combines UTCDate and UTCTime into an ISO playedAt', () => {
+    const headers = parsePgnHeaders(FULL_CHESSCOM_PGN)
+    expect(headers.playedAt).toBe('2024-03-14T18:45:12.000Z')
+  })
+
+  it('returns null for any header that is missing from the PGN', () => {
+    const headers = parsePgnHeaders(MISSING_HEADERS_PGN)
+    expect(headers.url).toBeNull()
+    expect(headers.eco).toBeNull()
+    expect(headers.playedAt).toBeNull()
+  })
+
+  it('still returns present fields when others are missing', () => {
+    const headers = parsePgnHeaders(MISSING_HEADERS_PGN)
+    expect(headers.white).toBe('alice')
+    expect(headers.black).toBe('bob')
+    expect(headers.result).toBe('1-0')
   })
 })

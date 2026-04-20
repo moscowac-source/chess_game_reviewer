@@ -13,9 +13,13 @@ import type { SyncResult } from '@/lib/sync-orchestrator'
 const FIXTURE_PGN = `[Event "Live Chess"]
 [Site "Chess.com"]
 [Date "2024.01.01"]
+[UTCDate "2024.01.01"]
+[UTCTime "12:00:00"]
 [White "player1"]
 [Black "player2"]
 [Result "1-0"]
+[ECO "C50"]
+[Link "https://www.chess.com/game/live/1"]
 
 1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6?? 4. Qxf7# 1-0`
 
@@ -32,8 +36,16 @@ const MOCK_USER = { id: 'mock-user-id', chess_com_username: 'testuser' }
 
 // Fake database that remembers which FENs already exist and records inserts.
 // Pass `existingFens` to simulate a DB that already has those cards.
-function makeMockDb(existingFens: string[] = []) {
+// `existingGamesByUrl` pre-populates games keyed by url so the orchestrator
+// reuses the id instead of inserting a duplicate.
+function makeMockDb(
+  existingFens: string[] = [],
+  existingGamesByUrl: Record<string, string> = {},
+) {
   const insertedRows: Record<string, unknown>[] = []
+  const insertedGames: Record<string, unknown>[] = []
+  const gamesByUrl: Record<string, string> = { ...existingGamesByUrl }
+  let gameIdCounter = 0
   const db = {
     from: (table: string) => {
       if (table === 'sync_log') {
@@ -57,6 +69,39 @@ function makeMockDb(existingFens: string[] = []) {
           }),
         }
       }
+      if (table === 'games') {
+        return {
+          select: (_cols: string) => {
+            const filters: Record<string, string> = {}
+            const chain = {
+              eq: (col: string, val: string) => {
+                filters[col] = val
+                return chain
+              },
+              maybeSingle: () => {
+                const url = filters.url
+                if (url && gamesByUrl[url]) {
+                  return Promise.resolve({ data: { id: gamesByUrl[url] }, error: null })
+                }
+                return Promise.resolve({ data: null, error: null })
+              },
+            }
+            return chain
+          },
+          insert: (row: Record<string, unknown>) => ({
+            select: (_cols: string) => ({
+              single: () => {
+                const id = `game-id-${++gameIdCounter}`
+                insertedGames.push({ ...row, id })
+                if (typeof row.url === 'string' && row.url.length > 0) {
+                  gamesByUrl[row.url] = id
+                }
+                return Promise.resolve({ data: { id }, error: null })
+              },
+            }),
+          }),
+        }
+      }
       return {
         select: (_cols: string) => ({
           in: (_col: string, vals: string[]) =>
@@ -74,7 +119,7 @@ function makeMockDb(existingFens: string[] = []) {
       }
     },
   }
-  return { db, insertedRows }
+  return { db, insertedRows, insertedGames, gamesByUrl }
 }
 
 type MsgHandler = ((msg: string | { data: string }) => void) | null
@@ -318,6 +363,82 @@ describe('POST /api/sync — integration', () => {
       expect(typeof row.fen).toBe('string')
       expect(typeof row.correct_move).toBe('string')
       expect(['blunder', 'mistake', 'great', 'brilliant']).toContain(row.classification)
+    }
+  })
+
+  // Issue #34: sync persists a games row per PGN with parsed headers and
+  // links each new card to that games row via game_id
+  it('inserts a games row per PGN with parsed Chess.com headers', async () => {
+    const { db, insertedGames } = makeMockDb()
+
+    await POST(makeRequest('incremental'), {
+      gamesFetcher: makeGamesFetcher([FIXTURE_PGN]),
+      db: db as never,
+      engineFactory: makeBlunderEngineFactory(),
+      authFn: DEFAULT_AUTH,
+    })
+
+    expect(insertedGames).toHaveLength(1)
+    expect(insertedGames[0]).toMatchObject({
+      user_id: MOCK_USER.id,
+      source: 'chess.com',
+      white: 'player1',
+      black: 'player2',
+      result: '1-0',
+      url: 'https://www.chess.com/game/live/1',
+      eco: 'C50',
+    })
+  })
+
+  it('links each newly generated card to the games row via game_id', async () => {
+    const { db, insertedGames, insertedRows } = makeMockDb()
+
+    await POST(makeRequest('incremental'), {
+      gamesFetcher: makeGamesFetcher([FIXTURE_PGN]),
+      db: db as never,
+      engineFactory: makeBlunderEngineFactory(),
+      authFn: DEFAULT_AUTH,
+    })
+
+    expect(insertedGames).toHaveLength(1)
+    const gameId = insertedGames[0].id
+    expect(insertedRows.length).toBeGreaterThan(0)
+    for (const row of insertedRows) {
+      expect(row).toMatchObject({ game_id: gameId })
+    }
+  })
+
+  it('does not insert a duplicate games row when the same url is synced again', async () => {
+    // Pre-populate the games table with the fixture's url
+    const { db, insertedGames } = makeMockDb([], {
+      'https://www.chess.com/game/live/1': 'pre-existing-game-id',
+    })
+
+    await POST(makeRequest('incremental'), {
+      gamesFetcher: makeGamesFetcher([FIXTURE_PGN]),
+      db: db as never,
+      engineFactory: makeBlunderEngineFactory(),
+      authFn: DEFAULT_AUTH,
+    })
+
+    expect(insertedGames).toHaveLength(0)
+  })
+
+  it('reuses the existing games row id when syncing the same url again', async () => {
+    const { db, insertedRows } = makeMockDb([], {
+      'https://www.chess.com/game/live/1': 'pre-existing-game-id',
+    })
+
+    await POST(makeRequest('incremental'), {
+      gamesFetcher: makeGamesFetcher([FIXTURE_PGN]),
+      db: db as never,
+      engineFactory: makeBlunderEngineFactory(),
+      authFn: DEFAULT_AUTH,
+    })
+
+    expect(insertedRows.length).toBeGreaterThan(0)
+    for (const row of insertedRows) {
+      expect(row).toMatchObject({ game_id: 'pre-existing-game-id' })
     }
   })
 
