@@ -560,6 +560,29 @@ Order of execution is not fixed — pick them up based on priority. Issues #28, 
 
 ---
 
+### Mini-plan: Issue #32 — 7-day review accuracy on the dashboard
+
+**What the user will see change.** The dashboard's "7-day accuracy" tile (currently `—` with "Not tracked yet") shows a percentage: the share of reviews in the last 7 days where the user got the card right. "Right" means the review was rated `good` or `easy`; "wrong" means `again` or `hard` (hard indicates enough struggle to count as a miss for this metric). If the user has no reviews in the last 7 days, the tile shows `—`.
+
+**Database changes.** None. Every review already writes a row to `review_log` with `user_id`, `card_id`, `rating`, and `reviewed_at`.
+
+**API changes.** One new route: `GET /api/stats/accuracy?days=7`. Auth-scoped. Returns `{ accuracy: number | null, totalReviews: number }`. `accuracy` is `null` when there are zero reviews in the window; otherwise a whole-number percent (0–100) of `(good + easy) / total`. `days` is validated as an integer 1–30 (default 7).
+
+**UI changes.** Dashboard stats strip "7-day accuracy" tile fetches `/api/stats/accuracy?days=7` on load and renders `{accuracy}%` when non-null, `—` otherwise. The "Not tracked yet" subtitle is removed.
+
+**Acceptance criteria.**
+- [x] `GET /api/stats/accuracy?days=7` returns `{ accuracy, totalReviews }` for the authenticated user
+- [x] Unauthenticated requests return 401
+- [x] `accuracy` is `null` when the user has no reviews in the window
+- [x] `accuracy` is a whole-number percent (rounded) of `(good + easy) / total` over the window
+- [x] `days` query param is validated as integer 1–30; invalid values return 400
+- [x] Reviews older than the window are excluded
+- [x] Dashboard "7-day accuracy" tile shows `{accuracy}%` when non-null, `—` otherwise; "Not tracked yet" subtitle removed
+- [x] Unit tests cover: no reviews, all-correct, all-incorrect, mixed, reviews at and just outside the 7-day boundary, rounding
+- [x] Integration test: mocked `review_log` rows produce the expected accuracy via the API
+
+---
+
 ## Phase 21: Move Explanations (V2 Enhancement)
 
 **User stories**: TBD
