@@ -536,6 +536,30 @@ Order of execution is not fixed — pick them up based on priority. Issues #28, 
 
 ---
 
+### Mini-plan: Issue #31 — Track daily review streak
+
+**What the user will see change.** The dashboard's "Day streak" tile (currently `—` with "Not tracked yet") shows a number: the count of consecutive days the user has reviewed at least one card, counting today. If the user hasn't reviewed today yet but did review yesterday, the streak still shows — a streak only breaks once a full day is skipped. No reviews at all, or most recent review 2+ days ago, shows `0`.
+
+**Database changes.** None. Every review already writes a row to `review_log` with a `reviewed_at` timestamp. Consecutive-day counting runs over those rows.
+
+**API changes.** One new route: `GET /api/stats/streak`. Auth-scoped. Returns `{ streak: number }`. Logic: collect distinct UTC days from the user's `review_log` rows, start at today (or yesterday if today has none), then walk backwards day-by-day counting while each previous day is present; stop at the first gap.
+
+**UI changes.** Dashboard stats strip "Day streak" tile fetches `/api/stats/streak` on load and renders the number. Falls back to `—` if the fetch fails. The "Not tracked yet" subtitle is removed.
+
+**Acceptance criteria.**
+- [x] `GET /api/stats/streak` returns `{ streak: N }` for the authenticated user
+- [x] Unauthenticated requests return 401
+- [x] Streak is `0` when the user has never reviewed a card
+- [x] Streak counts today if there's a review today
+- [x] Streak counts yesterday as the end if there's no review today but there is yesterday
+- [x] Streak is `0` if the most recent review was 2+ days ago
+- [x] Consecutive-day counting stops at the first gap
+- [x] Dashboard "Day streak" tile shows the value from the new endpoint instead of `—`
+- [x] Unit tests cover: no reviews, today only, yesterday only, 5-day unbroken run, run broken by a gap, multiple reviews on the same day
+- [x] Integration test: mocked `review_log` rows produce the expected streak via the API
+
+---
+
 ## Phase 21: Move Explanations (V2 Enhancement)
 
 **User stories**: TBD

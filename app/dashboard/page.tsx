@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const [counts, setCounts] = useState<ModeCounts | null>(null)
   const [session, setSession] = useState<ReviewSession | null>(null)
   const [syncStatus, setSyncStatus] = useState<SyncLog | null | undefined>(undefined)
+  const [streak, setStreak] = useState<number | null>(null)
 
   useEffect(() => {
     fetch('/api/review/counts')
@@ -60,6 +61,13 @@ export default function DashboardPage() {
     fetch('/api/sync/status')
       .then((r) => r.json())
       .then(setSyncStatus)
+
+    fetch('/api/stats/streak')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && typeof data.streak === 'number') setStreak(data.streak)
+      })
+      .catch(() => {})
   }, [])
 
   const dueToday = counts?.standard ?? null
@@ -146,7 +154,7 @@ export default function DashboardPage() {
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 36, padding: '40px 0', borderBottom: '1px solid var(--line)' }}>
           <Stat big={dueToday ?? '—'} label="Due today" mono />
           <Stat big={newCards ?? '—'} label="New cards" mono />
-          <Stat big="—" label="Day streak" mono sub="Not tracked yet" />
+          <Stat big={streak ?? '—'} label="Day streak" mono />
           <Stat big="—" label="7-day accuracy" mono sub="Not tracked yet" />
           <Stat big={counts ? Object.values(counts).reduce((a, b) => a + b, 0) : '—'} label="Total in deck" mono />
         </section>
