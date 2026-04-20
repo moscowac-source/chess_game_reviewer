@@ -501,12 +501,12 @@ Order of execution is not fixed — pick them up based on priority. Issues #28, 
 **UI changes.** Review screen side panel renders a CPL badge next to the classification badge when `cpl` is not null.
 
 **Acceptance criteria.**
-- [ ] Migration `006_cards_cpl.sql` adds nullable `cpl INTEGER` to `cards`
-- [ ] `types/database.ts` reflects the new column
-- [ ] Card generator writes the CPL value on every new card
-- [ ] Review session API returns `cpl` on each card
-- [ ] CPL badge renders on review side panel when non-null and is hidden when null
-- [ ] Integration test — a sync run produces cards with non-null `cpl`
+- [x] Migration `006_cards_cpl.sql` adds nullable `cpl INTEGER` to `cards`
+- [x] `types/database.ts` reflects the new column
+- [x] Card generator writes the CPL value on every new card
+- [x] Review session API returns `cpl` on each card
+- [x] CPL badge renders on review side panel when non-null and is hidden when null
+- [x] Integration test — a sync run produces cards with non-null `cpl`
 
 ---
 

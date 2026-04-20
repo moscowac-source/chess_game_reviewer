@@ -138,6 +138,24 @@ describe('generateCards', () => {
     expect(insertedRows[0]).toHaveProperty('note', null)
   })
 
+  // Issue #29: the cpl value from the PositionAnalysis is persisted on the card
+  it('writes the cpl value from the PositionAnalysis on each new card', async () => {
+    const { db, insertedRows } = makeMockDb()
+    const position: PositionAnalysis = {
+      fen: FEN_A,
+      movePlayed: 'e5',
+      cpl: 310,
+      bestMove: 'Nf3',
+      bestLine: ['Nf3'],
+      classification: 'blunder',
+    }
+
+    await generateCards([position], db as never)
+
+    expect(insertedRows).toHaveLength(1)
+    expect(insertedRows[0]).toMatchObject({ cpl: 310 })
+  })
+
   // -------------------------------------------------------------------------
   // Test 5: mix — 3 positions, one FEN already exists → 2 created, 1 skipped
   // -------------------------------------------------------------------------

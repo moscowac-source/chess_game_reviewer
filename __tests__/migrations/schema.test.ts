@@ -152,3 +152,20 @@ test('theme+note migration adds nullable theme and note columns to cards', () =>
   expect(sql).not.toMatch(/"theme"\s+TEXT\s+NOT NULL/i)
   expect(sql).not.toMatch(/"note"\s+TEXT\s+NOT NULL/i)
 })
+
+// ---------------------------------------------------------------------------
+// Issue #29: cpl on cards
+// ---------------------------------------------------------------------------
+
+const CPL_MIGRATION_PATH = join(process.cwd(), 'supabase/migrations/006_cards_cpl.sql')
+
+test('cpl migration file exists', () => {
+  expect(existsSync(CPL_MIGRATION_PATH)).toBe(true)
+})
+
+test('cpl migration adds nullable cpl integer column to cards', () => {
+  const sql = readFileSync(CPL_MIGRATION_PATH, 'utf8')
+  expect(sql).toMatch(/ALTER TABLE\s+"cards"/i)
+  expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS\s+"cpl"\s+INTEGER/i)
+  expect(sql).not.toMatch(/"cpl"\s+INTEGER\s+NOT NULL/i)
+})

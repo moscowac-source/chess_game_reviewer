@@ -13,6 +13,7 @@ interface SessionCard {
   isNew: boolean
   theme: string | null
   note: string | null
+  cpl: number | null
 }
 
 interface ReviewSession {
@@ -88,6 +89,11 @@ function SidePanel({
             {card.theme && (
               <span className="mono" style={{ fontSize: 10, color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                 {card.theme}
+              </span>
+            )}
+            {card.cpl != null && (
+              <span className="mono" style={{ fontSize: 10, color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                {card.cpl > 0 ? `−${card.cpl} cp` : `${card.cpl} cp`}
               </span>
             )}
           </div>

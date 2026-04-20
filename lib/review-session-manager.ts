@@ -9,6 +9,7 @@ export interface SessionCard {
   isNew: boolean
   theme: string | null
   note: string | null
+  cpl: number | null
 }
 
 export interface ReviewSession {
@@ -45,6 +46,7 @@ type RawCard = {
   game_played_at?: string | null
   theme?: string | null
   note?: string | null
+  cpl?: number | null
 }
 
 const MISTAKE_CLASSIFICATIONS: CardClassification[] = ['blunder', 'mistake']
@@ -141,6 +143,7 @@ export async function buildReviewSession(
     isNew: !dueIds.has(c.id),
     theme: c.theme ?? null,
     note: c.note ?? null,
+    cpl: c.cpl ?? null,
   }))
 
   return { cards, totalDue: dueStates.length, newCardsToday: newReviewedToday }

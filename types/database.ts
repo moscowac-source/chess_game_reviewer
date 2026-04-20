@@ -8,6 +8,7 @@ export interface Card {
   created_at: string
   theme: string | null
   note: string | null
+  cpl: number | null
 }
 
 export type CardStateValue = 'new' | 'learning' | 'review' | 'relearning'

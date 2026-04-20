@@ -214,7 +214,7 @@ describe('buildReviewSession', () => {
       { card_id: 'card-1', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
     ]
     const cards: Row[] = [
-      { id: 'card-1', fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3', correct_move: 'Bb5', classification: 'blunder', theme: 'opening', note: null },
+      { id: 'card-1', fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3', correct_move: 'Bb5', classification: 'blunder', theme: 'opening', note: null, cpl: 250 },
     ]
     const { db } = makeMockDb(cardStates, cards)
 
@@ -228,7 +228,28 @@ describe('buildReviewSession', () => {
       isNew: false,
       theme: 'opening',
       note: null,
+      cpl: 250,
     })
+  })
+
+  // Issue #29: cpl is passed through on each SessionCard; null when missing
+  it('passes cpl through from the cards row, defaulting to null when absent', async () => {
+    const cardStates: Row[] = [
+      { card_id: 'card-with-cpl', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+      { card_id: 'card-no-cpl', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+    ]
+    const cards: Row[] = [
+      { id: 'card-with-cpl', fen: 'fen1', correct_move: 'e4', classification: 'blunder', cpl: 310 },
+      { id: 'card-no-cpl', fen: 'fen2', correct_move: 'Nf3', classification: 'mistake' },
+    ]
+    const { db } = makeMockDb(cardStates, cards)
+
+    const session = await buildReviewSession(USER, db as never)
+
+    const withCpl = session.cards.find((c) => c.cardId === 'card-with-cpl')
+    const noCpl = session.cards.find((c) => c.cardId === 'card-no-cpl')
+    expect(withCpl?.cpl).toBe(310)
+    expect(noCpl?.cpl).toBeNull()
   })
 
   // -------------------------------------------------------------------------

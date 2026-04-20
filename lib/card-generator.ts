@@ -55,6 +55,7 @@ export async function generateCards(
       classification: p.classification,
       theme: classifyTheme(p.fen),
       note: null,
+      cpl: p.cpl,
     }))
     const { error: insertError } = await db.from('cards').insert(rows)
     if (insertError) throw insertError
