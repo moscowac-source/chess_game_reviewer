@@ -12,6 +12,13 @@ interface ModeCounts {
   brilliancies: number
 }
 
+interface ClassificationCounts {
+  blunder: number
+  mistake: number
+  great: number
+  brilliant: number
+}
+
 interface SessionCard {
   cardId: string
   fen: string
@@ -49,6 +56,7 @@ export default function DashboardPage() {
   const [syncStatus, setSyncStatus] = useState<SyncLog | null | undefined>(undefined)
   const [streak, setStreak] = useState<number | null>(null)
   const [accuracy, setAccuracy] = useState<number | null>(null)
+  const [breakdown, setBreakdown] = useState<ClassificationCounts | null>(null)
 
   useEffect(() => {
     fetch('/api/review/counts')
@@ -74,6 +82,21 @@ export default function DashboardPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data && typeof data.accuracy === 'number') setAccuracy(data.accuracy)
+      })
+      .catch(() => {})
+
+    fetch('/api/stats/classification')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (
+          data &&
+          typeof data.blunder === 'number' &&
+          typeof data.mistake === 'number' &&
+          typeof data.great === 'number' &&
+          typeof data.brilliant === 'number'
+        ) {
+          setBreakdown(data)
+        }
       })
       .catch(() => {})
   }, [])
@@ -166,6 +189,33 @@ export default function DashboardPage() {
           <Stat big={accuracy !== null ? `${accuracy}%` : '—'} label="7-day accuracy" mono />
           <Stat big={counts ? Object.values(counts).reduce((a, b) => a + b, 0) : '—'} label="Total in deck" mono />
         </section>
+
+        {/* Deck breakdown */}
+        {breakdown && (
+          <section style={{ marginTop: 48 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 }}>
+              <h2 className="serif" style={{ fontSize: 28, letterSpacing: '-0.02em', margin: 0, fontWeight: 400 }}>Deck breakdown</h2>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, border: '1px solid var(--line)' }}>
+              <div data-testid="breakdown-blunder" style={{ padding: '18px 20px', borderRight: '1px solid var(--line)' }}>
+                <div className="serif" style={{ fontSize: 36, letterSpacing: '-0.02em', lineHeight: 1, fontWeight: 400 }}>{breakdown.blunder}</div>
+                <div className="mono" style={{ marginTop: 8, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>Blunders</div>
+              </div>
+              <div data-testid="breakdown-mistake" style={{ padding: '18px 20px', borderRight: '1px solid var(--line)' }}>
+                <div className="serif" style={{ fontSize: 36, letterSpacing: '-0.02em', lineHeight: 1, fontWeight: 400 }}>{breakdown.mistake}</div>
+                <div className="mono" style={{ marginTop: 8, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>Mistakes</div>
+              </div>
+              <div data-testid="breakdown-great" style={{ padding: '18px 20px', borderRight: '1px solid var(--line)' }}>
+                <div className="serif" style={{ fontSize: 36, letterSpacing: '-0.02em', lineHeight: 1, fontWeight: 400 }}>{breakdown.great}</div>
+                <div className="mono" style={{ marginTop: 8, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>Greats</div>
+              </div>
+              <div data-testid="breakdown-brilliant" style={{ padding: '18px 20px' }}>
+                <div className="serif" style={{ fontSize: 36, letterSpacing: '-0.02em', lineHeight: 1, fontWeight: 400 }}>{breakdown.brilliant}</div>
+                <div className="mono" style={{ marginTop: 8, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>Brilliants</div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Today's queue */}
         <section style={{ marginTop: 48 }}>

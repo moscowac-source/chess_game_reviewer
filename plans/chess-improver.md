@@ -583,6 +583,30 @@ Order of execution is not fixed — pick them up based on priority. Issues #28, 
 
 ---
 
+### Mini-plan: Issue #33 — Classification breakdown for dashboard
+
+**What the user will see change.** Below the dashboard stats strip, a new "Deck breakdown" section shows how the user's full deck splits across the four classifications — Blunders, Mistakes, Greats, Brilliants — as a row of four small tiles. If the deck is empty, all four read `0`.
+
+**Database changes.** None. The `cards` table already stores `classification`; card ownership is derived via `card_state` (a card belongs to a user if there's a `card_state` row for that pair).
+
+**API changes.** One new route: `GET /api/stats/classification`. Auth-scoped. Returns `{ blunder, mistake, great, brilliant }` — counts of the authenticated user's cards in each category. Unauthenticated requests get 401.
+
+Note — Issue #33 mentioned extending `/api/review/counts`, but that endpoint returns due-today per mode (FSRS-scheduled). A separate stats endpoint keeps "total deck shape" distinct from "what's due now," matching the pattern used for `/api/stats/streak` and `/api/stats/accuracy`.
+
+**UI changes.** Dashboard fetches `/api/stats/classification` on load and renders a four-tile "Deck breakdown" section between the stats strip and "Today's queue."
+
+**Acceptance criteria.**
+- [x] `GET /api/stats/classification` returns `{ blunder, mistake, great, brilliant }` for the authenticated user
+- [x] Unauthenticated requests return 401
+- [x] Counts reflect only the current user's cards (via `card_state`), not the global `cards` table
+- [x] Classifications outside the four categories are ignored
+- [x] Returns `0` for each category when the user has no cards
+- [x] Dashboard renders a "Deck breakdown" section with four tiles using the endpoint's counts
+- [x] Unit tests cover: 401, empty deck, mixed counts, unknown classifications, cross-user isolation
+- [x] Integration test: mocked `card_state`/`cards` rows produce the expected counts via the API
+
+---
+
 ## Phase 21: Move Explanations (V2 Enhancement)
 
 **User stories**: TBD
