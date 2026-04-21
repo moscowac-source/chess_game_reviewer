@@ -101,6 +101,11 @@ export default function SyncPage() {
     ? lastStatus.tone === 'success' ? 'OK' : lastStatus.tone === 'warn' ? 'Stuck' : 'Error'
     : '—'
 
+  const lastSuccessful = history.find((h) => syncRunStatusLabel(h).tone === 'success')
+  const lastSuccessfulLabel = lastSuccessful
+    ? new Date(lastSuccessful.completed_at ?? lastSuccessful.started_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    : '—'
+
   return (
     <>
       <Nav />
@@ -145,7 +150,7 @@ export default function SyncPage() {
           <Stat big={status?.games_processed ?? '—'} label="Games imported (last run)" mono />
           <Stat big={status?.cards_created ?? '—'} label="Cards created (last run)" mono />
           <Stat big={lastStatusStat} label="Last run status" mono />
-          <Stat big={lastRun} label="Last successful run" mono />
+          <Stat big={lastSuccessfulLabel} label="Last successful run" mono />
         </div>
 
         {/* Pipeline diagram */}
