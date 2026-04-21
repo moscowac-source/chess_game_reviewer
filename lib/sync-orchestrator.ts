@@ -60,6 +60,16 @@ export interface SyncStepEvent {
  */
 export type StepLogger = (event: SyncStepEvent) => Promise<void>
 
+/**
+ * Minimal shape of Inngest's `step` object: run a named callback whose result
+ * is memoized across invocations. When present, the orchestrator wraps
+ * expensive phases in it so Inngest retries resume from where they left off
+ * instead of restarting the whole pipeline.
+ */
+export interface StepRunner {
+  run<T>(id: string, fn: () => Promise<T> | T): Promise<T>
+}
+
 export interface SyncOptions {
   username: string
   userId: string
@@ -69,6 +79,7 @@ export interface SyncOptions {
   syncLogger?: SyncLogger
   onProgress?: (progress: SyncProgress) => Promise<void> | void
   stepLogger?: StepLogger
+  step?: StepRunner
 }
 
 /**
@@ -204,7 +215,9 @@ export async function runSync(
   mode: 'historical' | 'incremental',
   options: SyncOptions,
 ): Promise<SyncResult> {
-  const { username, userId, db, gamesFetcher, engineFactory, syncLogger, onProgress, stepLogger } = options
+  const { username, userId, db, gamesFetcher, engineFactory, syncLogger, onProgress, stepLogger, step } = options
+  const runInStep = <T,>(id: string, fn: () => Promise<T> | T): Promise<T> =>
+    step ? step.run(id, fn) : Promise.resolve().then(fn)
 
   const logId = await syncLogger?.logStart(mode)
 
@@ -215,34 +228,34 @@ export async function runSync(
   const fetcher = gamesFetcher ?? ((u, m) => fetchGames(u, m))
   await onProgress?.({ stage: 'fetching', gamesProcessed: 0, gamesTotal: 0, cardsCreated: 0 })
 
-  if (stepLogger) {
-    await stepLogger({ step: 'fetch-archives-start', status: 'ok', details: { mode } })
-  }
-
-  let pgns: string[]
-  try {
-    pgns = await fetcher(username, mode)
-  } catch (err) {
+  const pgns = await runInStep('fetch-archives', async () => {
     if (stepLogger) {
-      const { message, code, details } = formatErrorStructured(err)
-      await stepLogger({
-        step: 'fetch-archives-end',
-        status: 'error',
-        error: message,
-        errorCode: code,
-        details,
-      })
+      await stepLogger({ step: 'fetch-archives-start', status: 'ok', details: { mode } })
     }
-    throw err
-  }
-
-  if (stepLogger) {
-    await stepLogger({
-      step: 'fetch-archives-end',
-      status: 'ok',
-      details: { count: pgns.length },
-    })
-  }
+    try {
+      const list = await fetcher(username, mode)
+      if (stepLogger) {
+        await stepLogger({
+          step: 'fetch-archives-end',
+          status: 'ok',
+          details: { count: list.length },
+        })
+      }
+      return list
+    } catch (err) {
+      if (stepLogger) {
+        const { message, code, details } = formatErrorStructured(err)
+        await stepLogger({
+          step: 'fetch-archives-end',
+          status: 'error',
+          error: message,
+          errorCode: code,
+          details,
+        })
+      }
+      throw err
+    }
+  })
 
   let gamesProcessed = 0
   let cardsCreated = 0
@@ -257,48 +270,63 @@ export async function runSync(
 
   for (let gameIndex = 0; gameIndex < pgns.length; gameIndex++) {
     const pgn = pgns[gameIndex]
-    let gameUrl: string | null = null
-    try {
-      const headers = await runStep(
-        stepLogger,
-        { step: 'parse-headers', gameIndex },
-        () => parsePgnHeaders(pgn),
-      )
-      gameUrl = headers.url ?? null
 
-      const positions = await runStep(
-        stepLogger,
-        { step: 'parse-positions', gameUrl, gameIndex },
-        () => parseGame(pgn),
-      )
+    // Each game's work is a single Inngest step so retries resume at the
+    // failed game instead of re-running earlier games, and so each game
+    // gets its own fresh Vercel invocation budget.
+    const gameResult = await runInStep(`process-game-${gameIndex}`, async () => {
+      let gameUrl: string | null = null
+      try {
+        const headers = await runStep(
+          stepLogger,
+          { step: 'parse-headers', gameIndex },
+          () => parsePgnHeaders(pgn),
+        )
+        gameUrl = headers.url ?? null
 
-      const gameId = await runStep(
-        stepLogger,
-        { step: 'ensure-game-row', gameUrl, gameIndex },
-        () => ensureGameRow(db, userId, pgn, headers),
-      )
+        const positions = await runStep(
+          stepLogger,
+          { step: 'parse-positions', gameUrl, gameIndex },
+          () => parseGame(pgn),
+        )
 
-      const analyses = await runStep(
-        stepLogger,
-        {
-          step: 'analyze',
-          gameUrl,
-          gameIndex,
-          detailsOnOk: { positions: positions.length },
-        },
-        () => analyzeGame(positions, engineFactory),
-      )
+        const gameId = await runStep(
+          stepLogger,
+          { step: 'ensure-game-row', gameUrl, gameIndex },
+          () => ensureGameRow(db, userId, pgn, headers),
+        )
 
-      const result = await runStep(
-        stepLogger,
-        { step: 'generate-cards', gameUrl, gameIndex },
-        () => generateCards(analyses, db, gameId),
-      )
+        const analyses = await runStep(
+          stepLogger,
+          {
+            step: 'analyze',
+            gameUrl,
+            gameIndex,
+            detailsOnOk: { positions: positions.length },
+          },
+          () => analyzeGame(positions, engineFactory),
+        )
 
+        const result = await runStep(
+          stepLogger,
+          { step: 'generate-cards', gameUrl, gameIndex },
+          () => generateCards(analyses, db, gameId),
+        )
+
+        return { cardsCreated: result.created }
+      } catch (err) {
+        // Swallow per-game errors inside the step so one bad game doesn't
+        // bubble up and fail the whole Inngest function. Callers aggregate
+        // these into `errors` below.
+        return { error: formatError(err) }
+      }
+    }) as { cardsCreated?: number; error?: string }
+
+    if (gameResult.error !== undefined) {
+      errors.push(gameResult.error)
+    } else {
       gamesProcessed++
-      cardsCreated += result.created
-    } catch (err) {
-      errors.push(formatError(err))
+      cardsCreated += gameResult.cardsCreated ?? 0
     }
 
     await onProgress?.({

@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { runSync, type SyncLogger, type StepLogger, type SyncStepEvent } from '@/lib/sync-orchestrator'
+import { runSync, type SyncLogger, type StepLogger, type SyncStepEvent, type StepRunner } from '@/lib/sync-orchestrator'
 import { makeMockDb } from '@/__tests__/helpers/mock-db'
 
 jest.mock('@/lib/stockfish-analyzer', () => ({
@@ -355,6 +355,142 @@ describe('runSync', () => {
       expect(fetchEnd.errorCode).toBe('FETCH_FAILED')
       // sync-end should NOT fire when the fetcher threw — we never got past fetch.
       expect(events.find((e) => e.step === 'sync-end')).toBeUndefined()
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // step runner — Inngest-style memoization of expensive phases
+  // -------------------------------------------------------------------------
+
+  describe('step runner', () => {
+    function makeStepSpy(): { step: StepRunner; calls: Array<{ id: string; hit: 'miss' | 'hit' }>; cache: Map<string, unknown> } {
+      const cache = new Map<string, unknown>()
+      const calls: Array<{ id: string; hit: 'miss' | 'hit' }> = []
+      const step: StepRunner = {
+        async run<T>(id: string, fn: () => Promise<T> | T): Promise<T> {
+          if (cache.has(id)) {
+            calls.push({ id, hit: 'hit' })
+            return cache.get(id) as T
+          }
+          calls.push({ id, hit: 'miss' })
+          const value = await fn()
+          cache.set(id, value)
+          return value
+        },
+      }
+      return { step, calls, cache }
+    }
+
+    it('wraps the fetch-archives phase in a single step.run when a step runner is supplied', async () => {
+      const { db } = makeMockDb()
+      const { step, calls } = makeStepSpy()
+      const fetcher = jest.fn(async () => ['<pgn>'])
+
+      mockedParse.mockReturnValue([{ fen: 'FEN', movePlayed: 'e4' }])
+      mockedGenerate.mockResolvedValue({ created: 1, skipped: 0 })
+
+      await runSync('historical', {
+        username: 'player',
+        userId: USER_ID,
+        db,
+        gamesFetcher: fetcher,
+        step,
+      })
+
+      const fetchStepCalls = calls.filter((c) => c.id === 'fetch-archives')
+      expect(fetchStepCalls).toEqual([{ id: 'fetch-archives', hit: 'miss' }])
+      expect(fetcher).toHaveBeenCalledTimes(1)
+    })
+
+    it('wraps each game in its own process-game-${i} step when a step runner is supplied', async () => {
+      const { db } = makeMockDb()
+      const { step, calls } = makeStepSpy()
+
+      mockedParse.mockReturnValue([{ fen: 'FEN', movePlayed: 'e4' }])
+      mockedGenerate.mockResolvedValue({ created: 1, skipped: 0 })
+
+      await runSync('historical', {
+        username: 'player',
+        userId: USER_ID,
+        db,
+        gamesFetcher: async () => ['<pgn-1>', '<pgn-2>', '<pgn-3>'],
+        step,
+      })
+
+      const gameStepIds = calls.filter((c) => c.id.startsWith('process-game-')).map((c) => c.id)
+      expect(gameStepIds).toEqual(['process-game-0', 'process-game-1', 'process-game-2'])
+    })
+
+    it('skips re-executing per-game work when a process-game step result is already memoized', async () => {
+      const { db } = makeMockDb()
+      const { step, cache } = makeStepSpy()
+      cache.set('fetch-archives', ['<pgn-0>', '<pgn-1>'])
+      cache.set('process-game-0', { cardsCreated: 7 })
+
+      mockedParse.mockReturnValue([{ fen: 'FEN', movePlayed: 'e4' }])
+      mockedGenerate.mockResolvedValue({ created: 3, skipped: 0 })
+
+      const result = await runSync('historical', {
+        username: 'player',
+        userId: USER_ID,
+        db,
+        gamesFetcher: async () => ['ignored'],
+        step,
+      })
+
+      // game 0 hit cache → parser/generator only ran for game 1
+      expect(mockedParse).toHaveBeenCalledTimes(1)
+      expect(mockedGenerate).toHaveBeenCalledTimes(1)
+      // cardsCreated = 7 (cached) + 3 (fresh)
+      expect(result.cardsCreated).toBe(10)
+      expect(result.gamesProcessed).toBe(2)
+    })
+
+    it('captures per-game errors inside the step without propagating to the step runner', async () => {
+      const { db } = makeMockDb()
+      const { step, calls } = makeStepSpy()
+
+      let parseCall = 0
+      mockedParse.mockImplementation(() => {
+        parseCall++
+        if (parseCall === 1) throw new Error('bad pgn')
+        return [{ fen: 'FEN', movePlayed: 'e4' }]
+      })
+      mockedGenerate.mockResolvedValue({ created: 2, skipped: 0 })
+
+      const result = await runSync('historical', {
+        username: 'player',
+        userId: USER_ID,
+        db,
+        gamesFetcher: async () => ['<bad>', '<good>'],
+        step,
+      })
+
+      // both game steps were attempted (neither propagated out of step.run)
+      expect(calls.filter((c) => c.id === 'process-game-0')).toHaveLength(1)
+      expect(calls.filter((c) => c.id === 'process-game-1')).toHaveLength(1)
+      expect(result).toEqual({ gamesProcessed: 1, cardsCreated: 2, errors: ['bad pgn'] })
+    })
+
+    it('returns memoized fetch-archives output on replay without re-invoking the fetcher', async () => {
+      const { db } = makeMockDb()
+      const { step, cache } = makeStepSpy()
+      cache.set('fetch-archives', ['<cached-pgn>'])
+      const fetcher = jest.fn(async () => ['<fresh-pgn>'])
+
+      mockedParse.mockReturnValue([{ fen: 'FEN', movePlayed: 'e4' }])
+      mockedGenerate.mockResolvedValue({ created: 1, skipped: 0 })
+
+      const result = await runSync('historical', {
+        username: 'player',
+        userId: USER_ID,
+        db,
+        gamesFetcher: fetcher,
+        step,
+      })
+
+      expect(fetcher).not.toHaveBeenCalled()
+      expect(result.gamesProcessed).toBe(1)
     })
   })
 })
