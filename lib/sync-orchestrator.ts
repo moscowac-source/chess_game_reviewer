@@ -29,7 +29,7 @@ export interface SyncOptions {
   userId: string
   db: SupabaseClient
   gamesFetcher?: (username: string, mode: 'historical' | 'incremental') => Promise<string[]>
-  engineFactory?: () => UciEngine
+  engineFactory?: () => UciEngine | Promise<UciEngine>
   syncLogger?: SyncLogger
   onProgress?: (progress: SyncProgress) => Promise<void> | void
 }

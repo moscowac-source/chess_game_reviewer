@@ -13,7 +13,7 @@ interface AuthUser {
 interface SyncDeps {
   gamesFetcher?: SyncOptions['gamesFetcher']
   db?: SupabaseClient
-  engineFactory?: () => UciEngine
+  engineFactory?: () => UciEngine | Promise<UciEngine>
   syncLogger?: SyncLogger
   authFn?: () => Promise<AuthUser | null>
 }

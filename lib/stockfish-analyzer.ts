@@ -89,7 +89,7 @@ function uciToSan(fen: string, uciMove: string): string | null {
 
 export async function analyzeGame(
   positions: GamePosition[],
-  engineFactory: () => UciEngine = createDefaultEngine,
+  engineFactory: () => UciEngine | Promise<UciEngine> = createDefaultEngine,
 ): Promise<PositionAnalysis[]> {
   if (typeof window !== 'undefined') {
     throw new Error('Stockfish analyzer must only run server-side')
@@ -97,7 +97,7 @@ export async function analyzeGame(
 
   if (positions.length === 0) return []
 
-  const engine = engineFactory()
+  const engine = await engineFactory()
   const results: PositionAnalysis[] = []
 
   for (let i = 0; i < positions.length; i++) {
@@ -129,8 +129,17 @@ export async function analyzeGame(
   return results
 }
 
-function createDefaultEngine(): UciEngine {
+async function createDefaultEngine(): Promise<UciEngine> {
+  // The Stockfish WASM build is an Emscripten module factory. The correct
+  // initialization is `Stockfish()` (returns a second factory) → `factory()`
+  // (returns a Promise that resolves to the actual engine with .postMessage).
+  // Our previous code skipped both calls and handed back the outer factory —
+  // which is why the sync kept logging "a.postMessage is not a function".
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Stockfish = require('stockfish/src/stockfish-nnue-16-single.js')
-  return typeof Stockfish === 'function' ? Stockfish() : Stockfish.default()
+  const Stockfish = require('stockfish/src/stockfish-nnue-16-single.js') as
+    | (() => () => Promise<UciEngine>)
+    | { default: () => () => Promise<UciEngine> }
+  const outer = typeof Stockfish === 'function' ? Stockfish : Stockfish.default
+  const factory = outer()
+  return await factory()
 }
