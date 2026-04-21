@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { createClient, getSessionUserWithUsername } from '@/lib/supabase-server'
-import { runSync, type SyncOptions, type SyncLogger } from '@/lib/sync-orchestrator'
+import { runSync, type SyncOptions, type SyncLogger, type StepLogger } from '@/lib/sync-orchestrator'
+import { makeSupabaseStepLogger } from '@/lib/sync-step-logger'
 import type { UciEngine } from '@/lib/stockfish-analyzer'
 
 interface AuthUser {
@@ -15,6 +16,7 @@ interface SyncDeps {
   db?: SupabaseClient
   engineFactory?: () => UciEngine
   syncLogger?: SyncLogger
+  stepLogger?: StepLogger
   authFn?: () => Promise<AuthUser | null>
 }
 
