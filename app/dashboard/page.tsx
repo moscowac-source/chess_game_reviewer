@@ -1,37 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Nav, Page, Button, Tag, Stat, MiniBoard } from '@/components/ui'
-import type { SyncLog } from '@/types/database'
-import type { SessionCard, ReviewSession } from '@/lib/review-session-manager'
-
-interface ModeCounts {
-  standard: number
-  recent: number
-  mistakes: number
-  brilliancies: number
-}
-
-interface ClassificationCounts {
-  blunder: number
-  mistake: number
-  great: number
-  brilliant: number
-}
-
-interface RecentGame {
-  id: string
-  played_at: string
-  white: string | null
-  black: string | null
-  result: string | null
-  url: string | null
-  eco: string | null
-  opponent: string | null
-  outcome: 'win' | 'loss' | 'draw' | 'unknown'
-  cardCount: number
-}
+import {
+  useCounts,
+  useReviewSession,
+  useStreak,
+  useAccuracy,
+  useClassification,
+  useRecentGames,
+  useSyncStatus,
+  type RecentGame,
+} from '@/hooks/dashboard'
 
 function outcomeLabel(outcome: RecentGame['outcome']): string {
   if (outcome === 'win') return 'Win'
@@ -49,68 +29,21 @@ function getDayGreeting() {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const [counts, setCounts] = useState<ModeCounts | null>(null)
-  const [session, setSession] = useState<ReviewSession | null>(null)
-  const [syncStatus, setSyncStatus] = useState<SyncLog | null | undefined>(undefined)
-  const [streak, setStreak] = useState<number | null>(null)
-  const [accuracy, setAccuracy] = useState<number | null>(null)
-  const [breakdown, setBreakdown] = useState<ClassificationCounts | null>(null)
-  const [recentGames, setRecentGames] = useState<RecentGame[]>([])
+  const counts = useCounts()
+  const session = useReviewSession('standard')
+  const streak = useStreak()
+  const accuracy = useAccuracy(7)
+  const breakdown = useClassification()
+  const recentGamesResult = useRecentGames(5)
+  const syncStatusResult = useSyncStatus()
 
-  useEffect(() => {
-    fetch('/api/review/counts')
-      .then((r) => r.json())
-      .then(setCounts)
-
-    fetch('/api/review/session?mode=standard')
-      .then((r) => r.json())
-      .then(setSession)
-
-    fetch('/api/sync/status')
-      .then((r) => r.json())
-      .then(setSyncStatus)
-
-    fetch('/api/stats/streak')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data && typeof data.streak === 'number') setStreak(data.streak)
-      })
-      .catch(() => {})
-
-    fetch('/api/stats/accuracy?days=7')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data && typeof data.accuracy === 'number') setAccuracy(data.accuracy)
-      })
-      .catch(() => {})
-
-    fetch('/api/stats/classification')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (
-          data &&
-          typeof data.blunder === 'number' &&
-          typeof data.mistake === 'number' &&
-          typeof data.great === 'number' &&
-          typeof data.brilliant === 'number'
-        ) {
-          setBreakdown(data)
-        }
-      })
-      .catch(() => {})
-
-    fetch('/api/games/recent?limit=5')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (Array.isArray(data)) setRecentGames(data as RecentGame[])
-      })
-      .catch(() => {})
-  }, [])
-
-  const dueToday = counts?.standard ?? null
-  const newCards = session?.newCardsToday ?? null
-  const queueCards = session?.cards.slice(0, 6) ?? []
-  const nextCard = session?.cards[0] ?? null
+  const dueToday = counts.data?.standard ?? null
+  const newCards = session.data?.newCardsToday ?? null
+  const queueCards = session.data?.cards.slice(0, 6) ?? []
+  const nextCard = session.data?.cards[0] ?? null
+  const recentGames = recentGamesResult.data ?? []
+  const syncLog = syncStatusResult.data?.log ?? null
+  const syncStatusLoaded = !syncStatusResult.loading && syncStatusResult.data !== null
 
   return (
     <>
@@ -191,32 +124,32 @@ export default function DashboardPage() {
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 36, padding: '40px 0', borderBottom: '1px solid var(--line)' }}>
           <Stat big={dueToday ?? '—'} label="Due today" mono />
           <Stat big={newCards ?? '—'} label="New cards" mono />
-          <Stat big={streak ?? '—'} label="Day streak" mono />
-          <Stat big={accuracy !== null ? `${accuracy}%` : '—'} label="7-day accuracy" mono />
-          <Stat big={counts ? Object.values(counts).reduce((a, b) => a + b, 0) : '—'} label="Total in deck" mono />
+          <Stat big={streak.data?.streak ?? '—'} label="Day streak" mono />
+          <Stat big={accuracy.data?.accuracy != null ? `${accuracy.data.accuracy}%` : '—'} label="7-day accuracy" mono />
+          <Stat big={counts.data ? Object.values(counts.data).reduce((a, b) => a + b, 0) : '—'} label="Total in deck" mono />
         </section>
 
         {/* Deck breakdown */}
-        {breakdown && (
+        {breakdown.data && (
           <section style={{ marginTop: 48 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 }}>
               <h2 className="serif" style={{ fontSize: 28, letterSpacing: '-0.02em', margin: 0, fontWeight: 400 }}>Deck breakdown</h2>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, border: '1px solid var(--line)' }}>
               <div data-testid="breakdown-blunder" style={{ padding: '18px 20px', borderRight: '1px solid var(--line)' }}>
-                <div className="serif" style={{ fontSize: 36, letterSpacing: '-0.02em', lineHeight: 1, fontWeight: 400 }}>{breakdown.blunder}</div>
+                <div className="serif" style={{ fontSize: 36, letterSpacing: '-0.02em', lineHeight: 1, fontWeight: 400 }}>{breakdown.data.blunder}</div>
                 <div className="mono" style={{ marginTop: 8, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>Blunders</div>
               </div>
               <div data-testid="breakdown-mistake" style={{ padding: '18px 20px', borderRight: '1px solid var(--line)' }}>
-                <div className="serif" style={{ fontSize: 36, letterSpacing: '-0.02em', lineHeight: 1, fontWeight: 400 }}>{breakdown.mistake}</div>
+                <div className="serif" style={{ fontSize: 36, letterSpacing: '-0.02em', lineHeight: 1, fontWeight: 400 }}>{breakdown.data.mistake}</div>
                 <div className="mono" style={{ marginTop: 8, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>Mistakes</div>
               </div>
               <div data-testid="breakdown-great" style={{ padding: '18px 20px', borderRight: '1px solid var(--line)' }}>
-                <div className="serif" style={{ fontSize: 36, letterSpacing: '-0.02em', lineHeight: 1, fontWeight: 400 }}>{breakdown.great}</div>
+                <div className="serif" style={{ fontSize: 36, letterSpacing: '-0.02em', lineHeight: 1, fontWeight: 400 }}>{breakdown.data.great}</div>
                 <div className="mono" style={{ marginTop: 8, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>Greats</div>
               </div>
               <div data-testid="breakdown-brilliant" style={{ padding: '18px 20px' }}>
-                <div className="serif" style={{ fontSize: 36, letterSpacing: '-0.02em', lineHeight: 1, fontWeight: 400 }}>{breakdown.brilliant}</div>
+                <div className="serif" style={{ fontSize: 36, letterSpacing: '-0.02em', lineHeight: 1, fontWeight: 400 }}>{breakdown.data.brilliant}</div>
                 <div className="mono" style={{ marginTop: 8, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>Brilliants</div>
               </div>
             </div>
@@ -340,12 +273,12 @@ export default function DashboardPage() {
         </section>
 
         {/* Sync status footer */}
-        {syncStatus !== undefined && (
+        {syncStatusLoaded && (
           <section style={{ marginTop: 40, padding: '20px 0', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="mono" style={{ fontSize: 11, color: 'var(--muted)', letterSpacing: '0.12em' }}>
-              {syncStatus === null
+              {syncLog === null
                 ? 'Never synced'
-                : `Synced ${new Date(syncStatus.completed_at ?? syncStatus.started_at).toLocaleString()} · ${syncStatus.games_processed} games · ${syncStatus.cards_created} cards`
+                : `Synced ${new Date(syncLog.completed_at ?? syncLog.started_at).toLocaleString()} · ${syncLog.games_processed} games · ${syncLog.cards_created} cards`
               }
             </div>
             <div style={{ display: 'flex', gap: 20 }}>
