@@ -122,8 +122,18 @@ function LinkStep({ onNext }: { onNext: (username: string) => void }) {
         // Save to DB
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          await supabase.from('users').upsert({ id: user.id, chess_com_username: username.trim() })
+        if (!user) {
+          setVerifyError('Not signed in. Please log in again and retry.')
+          setVerifying(false)
+          return
+        }
+        const { error: saveError } = await supabase
+          .from('users')
+          .upsert({ id: user.id, email: user.email, chess_com_username: username.trim() })
+        if (saveError) {
+          setVerifyError(`Could not save username: ${saveError.message}`)
+          setVerifying(false)
+          return
         }
         setVerified(true)
       } else {
