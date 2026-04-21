@@ -199,6 +199,36 @@ describe('analyzeGame', () => {
     })
   })
 
+  describe('engine command budget', () => {
+    it('uses movetime (not depth) so each eval has a hard per-position time cap', async () => {
+      const commands: string[] = []
+      const engine: () => UciEngine = () => {
+        const e: UciEngine = {
+          onmessage: null,
+          postMessage(cmd: string) {
+            commands.push(cmd)
+            if (cmd.startsWith('go')) {
+              setTimeout(() => {
+                e.onmessage?.('info depth 12 score cp 20 pv e2e4')
+                e.onmessage?.('bestmove e2e4')
+              }, 0)
+            }
+          },
+        }
+        return e
+      }
+
+      const startFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+      await analyzeGame([{ fen: startFen, movePlayed: 'e4' }], engine)
+
+      const goCommands = commands.filter((c) => c.startsWith('go'))
+      expect(goCommands.length).toBeGreaterThan(0)
+      for (const cmd of goCommands) {
+        expect(cmd).toMatch(/^go movetime \d+$/)
+      }
+    })
+  })
+
   describe('fixture position sequences', () => {
     // Scenario 1: blunder — one move loses 250+ CPL
     it('scenario 1: blunder move produces high CPL (>200)', async () => {
