@@ -11,7 +11,9 @@ export class ChessComApiError extends Error {
 }
 
 export async function fetchArchiveList(username: string): Promise<string[]> {
-  const url = `${CHESS_COM_BASE}/${username}/archives`
+  // Chess.com's public API is case-sensitive — 'Catalyst030119' returns 301,
+  // 'catalyst030119' returns 200. Normalize at the boundary.
+  const url = `${CHESS_COM_BASE}/${username.toLowerCase()}/archives`
   const response = await fetch(url)
 
   if (!response.ok) {
@@ -71,7 +73,7 @@ export async function fetchMonthlyArchive(
   }
 
   const mm = String(month).padStart(2, '0')
-  const url = `https://api.chess.com/pub/player/${username}/games/${year}/${mm}`
+  const url = `https://api.chess.com/pub/player/${username.toLowerCase()}/games/${year}/${mm}`
 
   const response = await fetch(url)
 
