@@ -60,6 +60,16 @@ export interface SyncStepEvent {
  */
 export type StepLogger = (event: SyncStepEvent) => Promise<void>
 
+/**
+ * Minimal shape of Inngest's `step` object: run a named callback whose result
+ * is memoized across invocations. When present, the orchestrator wraps
+ * expensive phases in it so Inngest retries resume from where they left off
+ * instead of restarting the whole pipeline.
+ */
+export interface StepRunner {
+  run<T>(id: string, fn: () => Promise<T> | T): Promise<T>
+}
+
 export interface SyncOptions {
   username: string
   userId: string
@@ -69,6 +79,7 @@ export interface SyncOptions {
   syncLogger?: SyncLogger
   onProgress?: (progress: SyncProgress) => Promise<void> | void
   stepLogger?: StepLogger
+  step?: StepRunner
 }
 
 /**
@@ -204,7 +215,9 @@ export async function runSync(
   mode: 'historical' | 'incremental',
   options: SyncOptions,
 ): Promise<SyncResult> {
-  const { username, userId, db, gamesFetcher, engineFactory, syncLogger, onProgress, stepLogger } = options
+  const { username, userId, db, gamesFetcher, engineFactory, syncLogger, onProgress, stepLogger, step } = options
+  const runInStep = <T,>(id: string, fn: () => Promise<T> | T): Promise<T> =>
+    step ? step.run(id, fn) : Promise.resolve().then(fn)
 
   const logId = await syncLogger?.logStart(mode)
 
@@ -215,34 +228,34 @@ export async function runSync(
   const fetcher = gamesFetcher ?? ((u, m) => fetchGames(u, m))
   await onProgress?.({ stage: 'fetching', gamesProcessed: 0, gamesTotal: 0, cardsCreated: 0 })
 
-  if (stepLogger) {
-    await stepLogger({ step: 'fetch-archives-start', status: 'ok', details: { mode } })
-  }
-
-  let pgns: string[]
-  try {
-    pgns = await fetcher(username, mode)
-  } catch (err) {
+  const pgns = await runInStep('fetch-archives', async () => {
     if (stepLogger) {
-      const { message, code, details } = formatErrorStructured(err)
-      await stepLogger({
-        step: 'fetch-archives-end',
-        status: 'error',
-        error: message,
-        errorCode: code,
-        details,
-      })
+      await stepLogger({ step: 'fetch-archives-start', status: 'ok', details: { mode } })
     }
-    throw err
-  }
-
-  if (stepLogger) {
-    await stepLogger({
-      step: 'fetch-archives-end',
-      status: 'ok',
-      details: { count: pgns.length },
-    })
-  }
+    try {
+      const list = await fetcher(username, mode)
+      if (stepLogger) {
+        await stepLogger({
+          step: 'fetch-archives-end',
+          status: 'ok',
+          details: { count: list.length },
+        })
+      }
+      return list
+    } catch (err) {
+      if (stepLogger) {
+        const { message, code, details } = formatErrorStructured(err)
+        await stepLogger({
+          step: 'fetch-archives-end',
+          status: 'error',
+          error: message,
+          errorCode: code,
+          details,
+        })
+      }
+      throw err
+    }
+  })
 
   let gamesProcessed = 0
   let cardsCreated = 0
