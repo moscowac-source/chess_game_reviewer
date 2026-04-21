@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Nav, Page, Button, Stat } from '@/components/ui'
 import { useSyncStatus, useSyncHistory } from '@/hooks/dashboard'
 import type { SyncLog } from '@/types/database'
@@ -172,11 +173,11 @@ export default function SyncPage() {
             )}
 
             {history.map((log, i) => (
-              <div key={log.id} style={{
+              <Link key={log.id} href={`/sync/${log.id}`} style={{
                 display: 'grid', gridTemplateColumns: '200px 120px 1fr 100px 100px', gap: 20,
                 padding: '14px 20px', alignItems: 'center',
                 borderBottom: i < history.length - 1 ? '1px solid var(--line)' : 'none',
-                background: 'var(--bg)',
+                background: 'var(--bg)', color: 'inherit', textDecoration: 'none',
               }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                   <div style={{
@@ -197,7 +198,7 @@ export default function SyncPage() {
                 </span>
                 <span className="serif" style={{ fontSize: 20, letterSpacing: '-0.02em' }}>{log.games_processed}</span>
                 <span className="serif" style={{ fontSize: 20, letterSpacing: '-0.02em' }}>{log.cards_created}</span>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

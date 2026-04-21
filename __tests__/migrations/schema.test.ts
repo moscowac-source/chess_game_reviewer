@@ -252,3 +252,39 @@ test('sync_log progress migration adds games_total INTEGER NOT NULL DEFAULT 0', 
   const sql = readFileSync(SYNC_PROGRESS_MIGRATION_PATH, 'utf8')
   expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS\s+"games_total"\s+INTEGER[\s\S]*NOT NULL[\s\S]*DEFAULT\s+0/i)
 })
+
+// ---------------------------------------------------------------------------
+// sync_step_log — per-step audit table
+// ---------------------------------------------------------------------------
+
+const SYNC_STEP_LOG_MIGRATION_PATH = join(
+  process.cwd(),
+  'supabase/migrations/011_sync_step_log.sql',
+)
+
+test('sync_step_log migration file exists', () => {
+  expect(existsSync(SYNC_STEP_LOG_MIGRATION_PATH)).toBe(true)
+})
+
+test('sync_step_log migration creates the audit table with required columns', () => {
+  const sql = readFileSync(SYNC_STEP_LOG_MIGRATION_PATH, 'utf8')
+  const match = sql.match(/CREATE TABLE IF NOT EXISTS "sync_step_log"[\s\S]*?\);/)
+  expect(match).not.toBeNull()
+  const block = match![0]
+  for (const col of ['id', 'sync_log_id', 'game_url', 'game_index', 'step', 'status', 'duration_ms', 'error', 'error_code', 'details', 'created_at']) {
+    expect(block).toContain(`"${col}"`)
+  }
+  // status CHECK constraint
+  expect(block).toMatch(/"status"[\s\S]*CHECK[\s\S]*'ok'[\s\S]*'error'[\s\S]*'skipped'/)
+  // FK to sync_log with cascade
+  expect(block).toMatch(/REFERENCES\s+"sync_log"\s*\(\s*"id"\s*\)[\s\S]*ON DELETE CASCADE/i)
+  // details is JSONB
+  expect(block).toMatch(/"details"\s+JSONB/i)
+})
+
+test('sync_step_log migration enables RLS and scopes select+insert via sync_log.user_id', () => {
+  const sql = readFileSync(SYNC_STEP_LOG_MIGRATION_PATH, 'utf8')
+  expect(sql).toContain('ALTER TABLE "sync_step_log" ENABLE ROW LEVEL SECURITY')
+  expect(sql).toMatch(/POLICY\s+"sync_step_log_select_own"[\s\S]*sync_log[\s\S]*auth\.uid\(\)/i)
+  expect(sql).toMatch(/POLICY\s+"sync_step_log_insert_own"[\s\S]*sync_log[\s\S]*auth\.uid\(\)/i)
+})

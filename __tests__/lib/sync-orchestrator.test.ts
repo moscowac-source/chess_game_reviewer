@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { runSync, type SyncLogger } from '@/lib/sync-orchestrator'
+import { runSync, type SyncLogger, type StepLogger, type SyncStepEvent } from '@/lib/sync-orchestrator'
 import { makeMockDb } from '@/__tests__/helpers/mock-db'
 
 jest.mock('@/lib/stockfish-analyzer', () => ({
@@ -228,5 +228,133 @@ describe('runSync', () => {
 
     expect(calls.started).toBe(1)
     expect(calls.completed).toHaveLength(0)
+  })
+
+  // -------------------------------------------------------------------------
+  // stepLogger — per-(game, step) audit rows
+  // -------------------------------------------------------------------------
+
+  describe('stepLogger', () => {
+    function makeStepSpy(): { logger: StepLogger; events: SyncStepEvent[] } {
+      const events: SyncStepEvent[] = []
+      const logger: StepLogger = async (e) => {
+        events.push(e)
+      }
+      return { logger, events }
+    }
+
+    it('emits one ok row per step for a successful game, plus run-level start/end', async () => {
+      const { db } = makeMockDb()
+      const { logger, events } = makeStepSpy()
+
+      mockedParse.mockReturnValue([{ fen: 'FEN', movePlayed: 'e4' }])
+      mockedAnalyze.mockResolvedValue([
+        { fen: 'FEN', movePlayed: 'e4', cpl: 300, bestMove: 'e5', bestLine: ['e5'], classification: 'blunder' },
+      ])
+      mockedGenerate.mockResolvedValue({ created: 1, skipped: 0 })
+
+      await runSync('historical', {
+        username: 'player',
+        userId: USER_ID,
+        db,
+        gamesFetcher: async () => ['<pgn>'],
+        stepLogger: logger,
+      })
+
+      const steps = events.map((e) => `${e.step}:${e.status}`)
+      expect(steps).toEqual([
+        'sync-start:ok',
+        'fetch-archives-start:ok',
+        'fetch-archives-end:ok',
+        'parse-headers:ok',
+        'parse-positions:ok',
+        'ensure-game-row:ok',
+        'analyze:ok',
+        'generate-cards:ok',
+        'sync-end:ok',
+      ])
+      // Per-game steps carry game_url/game_index; duration is a number.
+      const parseHeaders = events.find((e) => e.step === 'parse-headers')!
+      expect(parseHeaders.gameIndex).toBe(0)
+      expect(typeof parseHeaders.durationMs).toBe('number')
+      const parsePositions = events.find((e) => e.step === 'parse-positions')!
+      expect(parsePositions.gameUrl).toBe(EMPTY_HEADERS.url)
+      // fetch-archives-end should record the count.
+      const fetchEnd = events.find((e) => e.step === 'fetch-archives-end')!
+      expect(fetchEnd.details).toEqual({ count: 1 })
+    })
+
+    it('records a readable error row when a step throws a Supabase-shaped object (code/message/details)', async () => {
+      const { db } = makeMockDb()
+      const { logger, events } = makeStepSpy()
+
+      // Simulate a Supabase PostgrestError — plain object, not Error instance.
+      const dbErr = {
+        message: 'duplicate key value violates unique constraint',
+        code: '23505',
+        details: 'Key (url)=(abc) already exists.',
+        hint: 'retry',
+      }
+      mockedParse.mockImplementation(() => { throw dbErr })
+
+      await runSync('historical', {
+        username: 'player',
+        userId: USER_ID,
+        db,
+        gamesFetcher: async () => ['<pgn-1>'],
+        stepLogger: logger,
+      })
+
+      const errorRow = events.find((e) => e.status === 'error')!
+      expect(errorRow).toBeDefined()
+      expect(errorRow.step).toBe('parse-positions')
+      expect(errorRow.error).toBe(dbErr.message)
+      expect(errorRow.errorCode).toBe('23505')
+      expect(errorRow.details).toEqual({ details: dbErr.details, hint: dbErr.hint })
+      expect(errorRow.gameIndex).toBe(0)
+      // Run still ends with an end-row (status=error since no games succeeded).
+      const endRow = events.find((e) => e.step === 'sync-end')!
+      expect(endRow.status).toBe('error')
+      expect(endRow.details).toMatchObject({ gamesProcessed: 0, errorCount: 1 })
+    })
+
+    it('surfaces failures in the step logger itself rather than swallowing them', async () => {
+      const { db } = makeMockDb()
+      const failingLogger: StepLogger = async () => { throw new Error('step-log write failed') }
+
+      await expect(
+        runSync('incremental', {
+          username: 'player',
+          userId: USER_ID,
+          db,
+          gamesFetcher: async () => [],
+          stepLogger: failingLogger,
+        }),
+      ).rejects.toThrow('step-log write failed')
+    })
+
+    it('emits a fetch-archives-end error row and rethrows when the fetcher itself fails', async () => {
+      const { db } = makeMockDb()
+      const { logger, events } = makeStepSpy()
+
+      const boom = { message: 'chess.com 503', code: 'FETCH_FAILED' }
+
+      await expect(
+        runSync('incremental', {
+          username: 'player',
+          userId: USER_ID,
+          db,
+          gamesFetcher: async () => { throw boom },
+          stepLogger: logger,
+        }),
+      ).rejects.toBe(boom)
+
+      const fetchEnd = events.find((e) => e.step === 'fetch-archives-end')!
+      expect(fetchEnd.status).toBe('error')
+      expect(fetchEnd.error).toBe('chess.com 503')
+      expect(fetchEnd.errorCode).toBe('FETCH_FAILED')
+      // sync-end should NOT fire when the fetcher threw — we never got past fetch.
+      expect(events.find((e) => e.step === 'sync-end')).toBeUndefined()
+    })
   })
 })

@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { inngest } from './client'
 import { runSync, type SyncProgress } from '@/lib/sync-orchestrator'
 import { createServiceClient } from '@/lib/supabase-service'
+import { makeSupabaseStepLogger } from '@/lib/sync-step-logger'
 
 export interface SyncGamesDeps {
   db?: SupabaseClient
@@ -41,6 +42,7 @@ export const syncGamesFunction = inngest.createFunction(
         username,
         userId,
         db,
+        stepLogger: makeSupabaseStepLogger(db, syncLogId),
         onProgress: async (p: SyncProgress) => {
           await db
             .from('sync_log')
