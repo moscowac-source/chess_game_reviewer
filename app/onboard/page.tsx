@@ -5,19 +5,13 @@ import { useRouter } from 'next/navigation'
 import { Logo, Button, Field, Input } from '@/components/ui'
 import { createClient } from '@/lib/supabase-browser'
 
-const IMPORT_LOG = [
-  'Contacting api.chess.com…',
-  'Fetching game archives',
-  'Parsing PGN games',
-  'Stockfish depth 18 · batch 1 of 4',
-  'Classifying moves · CPL > 200 = blunder',
-  'Classifying moves · CPL 100–200 = mistake',
-  'Identifying engine top choices',
-  'Deduplicating positions by FEN',
-  'Writing unique positions to deck',
-  'Scheduling initial FSRS intervals',
-  'Done.',
-]
+const STAGE_LABEL: Record<string, string> = {
+  queued:    'Queued — worker picking up the job',
+  fetching:  'Contacting api.chess.com · pulling archives',
+  analyzing: 'Stockfish analysis · classifying moves · writing cards',
+  complete:  'Done.',
+  error:     'Sync stopped with an error.',
+}
 
 // ── Step 1: Your name (optional) ──────────────────────────────────────────
 
@@ -224,49 +218,82 @@ function LinkStep({ onNext }: { onNext: (username: string) => void }) {
 
 function ImportStep({ username, onDone }: { username: string; onDone: () => void }) {
   const [running, setRunning] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [logIdx, setLogIdx] = useState(0)
+  const [stage, setStage] = useState<string>('queued')
+  const [gamesDone, setGamesDone] = useState(0)
+  const [gamesTotal, setGamesTotal] = useState(0)
+  const [cardsCreated, setCardsCreated] = useState(0)
   const [error, setError] = useState<string | null>(null)
+
+  const progress = (() => {
+    if (stage === 'complete') return 100
+    if (stage === 'queued') return 2
+    if (stage === 'fetching') return 8
+    if (gamesTotal === 0) return 12
+    return Math.min(98, 12 + (gamesDone / gamesTotal) * 86)
+  })()
 
   async function startImport() {
     setRunning(true)
     setError(null)
+    setStage('queued')
+    setGamesDone(0)
+    setGamesTotal(0)
+    setCardsCreated(0)
 
-    // Animate log lines while the API call is in flight
-    let l = 0
-    const iv = setInterval(() => {
-      setProgress((p) => {
-        const next = Math.min(p + Math.random() * 4 + 1, 92) // cap at 92 until API returns
-        return next
-      })
-      if (l < IMPORT_LOG.length - 1) {
-        l += 1
-        setLogIdx(l)
-      }
-    }, 400)
-
+    let syncId: string
     try {
-      const res = await fetch('/api/sync', {
+      const res = await fetch('/api/sync/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: 'historical' }),
       })
-      clearInterval(iv)
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        setError(body.error ?? `Sync failed (${res.status})`)
+        setError(body.error ?? `Sync failed to start (${res.status})`)
         setRunning(false)
         return
       }
-      setProgress(100)
-      setLogIdx(IMPORT_LOG.length)
-      setTimeout(onDone, 800)
+      const body = await res.json()
+      syncId = body.sync_id
     } catch {
-      clearInterval(iv)
       setError('Network error — please try again.')
       setRunning(false)
+      return
+    }
+
+    let terminalStage: 'complete' | 'error' | null = null
+    let terminalError: string | null = null
+
+    // Poll once a second until terminal state
+    while (terminalStage === null) {
+      await new Promise((r) => setTimeout(r, 1000))
+      try {
+        const res = await fetch(`/api/sync/progress?id=${encodeURIComponent(syncId)}`)
+        if (!res.ok) continue
+        const data = await res.json()
+        setStage(data.stage ?? 'queued')
+        setGamesDone(data.games_done ?? 0)
+        setGamesTotal(data.games_total ?? 0)
+        setCardsCreated(data.cards_created ?? 0)
+        if (data.stage === 'complete') terminalStage = 'complete'
+        else if (data.stage === 'error') {
+          terminalStage = 'error'
+          terminalError = data.error ?? 'Sync failed'
+        }
+      } catch {
+        // Transient network error — keep polling
+      }
+    }
+
+    if (terminalStage === 'error') {
+      setError(terminalError ?? 'Sync failed')
+      setRunning(false)
+    } else {
+      setTimeout(onDone, 800)
     }
   }
+
+  const stageLabel = STAGE_LABEL[stage] ?? stage
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60 }}>
@@ -298,7 +325,9 @@ function ImportStep({ username, onDone }: { username: string; onDone: () => void
       <div style={{ background: 'var(--ink)', color: 'var(--bg)', padding: '32px 36px', minHeight: 420 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 28 }}>
           <span className="mono" style={{ fontSize: 10, letterSpacing: '0.18em', opacity: 0.6, textTransform: 'uppercase' }}>sync.pipeline</span>
-          <span className="mono" style={{ fontSize: 10, letterSpacing: '0.18em', opacity: 0.6, textTransform: 'uppercase' }}>{running ? 'RUNNING' : 'IDLE'}</span>
+          <span className="mono" style={{ fontSize: 10, letterSpacing: '0.18em', opacity: 0.6, textTransform: 'uppercase' }}>
+            {stage === 'complete' ? 'COMPLETE' : stage === 'error' ? 'ERROR' : running ? 'RUNNING' : 'IDLE'}
+          </span>
         </div>
         <div className="serif" style={{ fontSize: 72, letterSpacing: '-0.04em', lineHeight: 1, fontWeight: 400 }}>
           {Math.round(progress)}<span style={{ fontSize: 32, opacity: 0.5 }}>%</span>
@@ -307,12 +336,20 @@ function ImportStep({ username, onDone }: { username: string; onDone: () => void
           <div style={{ height: 1, background: 'var(--amber)', width: `${progress}%`, transition: 'width 360ms' }} />
         </div>
         <div style={{ marginTop: 28, fontFamily: 'var(--mono)', fontSize: 11, lineHeight: 1.9, color: 'rgba(245,242,236,0.7)' }}>
-          {IMPORT_LOG.slice(0, logIdx).map((line, i) => (
-            <div key={i} style={{ opacity: 1 - (logIdx - i - 1) * 0.08 }}>
-              <span style={{ opacity: 0.4 }}>{String(i + 1).padStart(2, '0')} · </span>{line}
+          <div>
+            <span style={{ opacity: 0.4 }}>stage · </span>{stageLabel}
+          </div>
+          {gamesTotal > 0 && (
+            <div>
+              <span style={{ opacity: 0.4 }}>games · </span>
+              {gamesDone} / {gamesTotal}
             </div>
-          ))}
-          {running && logIdx < IMPORT_LOG.length && (
+          )}
+          <div>
+            <span style={{ opacity: 0.4 }}>cards · </span>
+            {cardsCreated}
+          </div>
+          {running && stage !== 'complete' && stage !== 'error' && (
             <div style={{ opacity: 0.6 }}><span className="blink">▋</span></div>
           )}
         </div>

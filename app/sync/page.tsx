@@ -10,6 +10,9 @@ export default function SyncPage() {
   const historyFetch = useSyncHistory()
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [progressStage, setProgressStage] = useState<string | null>(null)
+  const [progressDone, setProgressDone] = useState(0)
+  const [progressTotal, setProgressTotal] = useState(0)
 
   const status: SyncLog | null | undefined = statusFetch.loading
     ? undefined
@@ -19,7 +22,11 @@ export default function SyncPage() {
   async function handleSyncNow() {
     setSyncing(true)
     setSyncError(null)
-    const res = await fetch('/api/sync', {
+    setProgressStage('queued')
+    setProgressDone(0)
+    setProgressTotal(0)
+
+    const res = await fetch('/api/sync/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode: 'incremental' }),
@@ -27,10 +34,37 @@ export default function SyncPage() {
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
       setSyncError(body.error ?? `Sync failed (${res.status})`)
+      setSyncing(false)
+      setProgressStage(null)
+      return
     }
+    const { sync_id } = await res.json()
+
+    // Poll progress until terminal
+    let terminal: 'complete' | 'error' | null = null
+    while (terminal === null) {
+      await new Promise((r) => setTimeout(r, 1000))
+      try {
+        const pr = await fetch(`/api/sync/progress?id=${encodeURIComponent(sync_id)}`)
+        if (!pr.ok) continue
+        const data = await pr.json()
+        setProgressStage(data.stage ?? 'queued')
+        setProgressDone(data.games_done ?? 0)
+        setProgressTotal(data.games_total ?? 0)
+        if (data.stage === 'complete') terminal = 'complete'
+        else if (data.stage === 'error') {
+          terminal = 'error'
+          setSyncError(data.error ?? 'Sync failed')
+        }
+      } catch {
+        // keep polling
+      }
+    }
+
     statusFetch.refetch()
     historyFetch.refetch()
     setSyncing(false)
+    setProgressStage(null)
   }
 
   const lastRun = status
@@ -63,6 +97,12 @@ export default function SyncPage() {
             <Button size="lg" onClick={handleSyncNow} disabled={syncing}>
               {syncing ? 'Syncing…' : 'Sync now →'}
             </Button>
+            {syncing && progressStage && (
+              <div className="mono" style={{ color: 'var(--ink-2)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                {progressStage}
+                {progressTotal > 0 && ` · ${progressDone} / ${progressTotal} games`}
+              </div>
+            )}
             {syncError && (
               <div style={{ color: 'var(--bad)', fontSize: 13 }}>{syncError}</div>
             )}
