@@ -18,7 +18,7 @@ function makeRequest(body: Record<string, unknown>) {
 
 function makeContext(cardId: string, recordReviewFn?: jest.Mock, authFn?: () => Promise<{ id: string } | null>) {
   return {
-    params: { cardId },
+    params: Promise.resolve({ cardId }),
     recordReviewFn,
     authFn: authFn ?? (async () => ({ id: USER_ID })),
   }

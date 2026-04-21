@@ -11,12 +11,12 @@ const VALID_OUTCOMES = new Set<ReviewOutcome>([
 ])
 
 interface PatchDeps extends AuthedRouteDeps {
-  params: { cardId: string }
+  params: Promise<{ cardId: string }>
   recordReviewFn?: typeof recordReview
 }
 
 export const PATCH = withAuthedRoute<PatchDeps>(async ({ req, db, user, deps }) => {
-  const { cardId } = deps.params
+  const { cardId } = await deps.params
   const recordReviewFn = deps.recordReviewFn ?? recordReview
 
   const body = await req.json()

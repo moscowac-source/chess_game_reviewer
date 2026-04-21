@@ -7,6 +7,7 @@ import { apiError } from '@/lib/api-response'
 export interface AuthedRouteDeps {
   db?: SupabaseClient
   authFn?: () => Promise<{ id: string } | null>
+  params?: Promise<Record<string, string | string[] | undefined>>
 }
 
 export interface AuthedRouteContext<D extends AuthedRouteDeps = AuthedRouteDeps> {
@@ -14,6 +15,15 @@ export interface AuthedRouteContext<D extends AuthedRouteDeps = AuthedRouteDeps>
   db: SupabaseClient
   user: { id: string }
   deps: D
+}
+
+type NextRouteContext = {
+  params: Promise<Record<string, string | string[] | undefined>>
+}
+
+export interface WrappedAuthedRoute<D extends AuthedRouteDeps> {
+  (req: Request, deps: D): Promise<Response | NextResponse>
+  (req: Request, ctx: NextRouteContext): Promise<Response | NextResponse>
 }
 
 /**
@@ -26,11 +36,18 @@ export interface AuthedRouteContext<D extends AuthedRouteDeps = AuthedRouteDeps>
  *
  * Extra per-route deps (e.g. `params`, `recordReviewFn`) pass through unchanged
  * on the `deps` field — extend the deps type parameter to type them.
+ *
+ * The returned function carries two overload signatures so it satisfies both
+ * Next.js's route-handler contract `(req, { params })` and the test-time
+ * dependency-injection shape `(req, deps)`.
  */
 export function withAuthedRoute<D extends AuthedRouteDeps = AuthedRouteDeps>(
   handler: (ctx: AuthedRouteContext<D>) => Promise<Response | NextResponse>,
-): (req: Request, deps?: D) => Promise<Response | NextResponse> {
-  return async (req, deps) => {
+): WrappedAuthedRoute<D> {
+  const wrapped = async (
+    req: Request,
+    deps?: D | NextRouteContext,
+  ): Promise<Response | NextResponse> => {
     const actualDeps = (deps ?? {}) as D
     const db = actualDeps.db ?? supabase
     const authFn = actualDeps.authFn ?? getSessionUser
@@ -43,4 +60,5 @@ export function withAuthedRoute<D extends AuthedRouteDeps = AuthedRouteDeps>(
       return apiError(500, message)
     }
   }
+  return wrapped as WrappedAuthedRoute<D>
 }

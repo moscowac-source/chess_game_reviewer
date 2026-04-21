@@ -98,7 +98,7 @@ describe('User isolation — user B cannot see user A data', () => {
     const recordReviewFn = jest.fn().mockResolvedValue(undefined)
 
     await patchCard(req, {
-      params: { cardId },
+      params: Promise.resolve({ cardId }),
       db,
       authFn: async () => ({ id: USER_B }),
       recordReviewFn,
