@@ -34,6 +34,7 @@ export default function SyncPage() {
     : statusFetch.data?.log ?? null
   const history: SyncLog[] = historyFetch.data ?? []
 
+
   async function handleSyncNow() {
     setSyncing(true)
     setSyncError(null)
@@ -77,6 +78,28 @@ export default function SyncPage() {
   const lastRun = status
     ? new Date(status.completed_at ?? status.started_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     : '—'
+  const lastRunDate = status
+    ? new Date(status.completed_at ?? status.started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : null
+
+  const lastStatus = status ? syncRunStatusLabel(status) : null
+  const heroHeadline = status === undefined
+    ? 'Loading…'
+    : status === null
+      ? 'Never synced.'
+      : lastStatus!.tone === 'success'
+        ? 'Everything in order.'
+        : lastStatus!.tone === 'warn'
+          ? 'Last run did not finish.'
+          : 'Last run stopped with an error.'
+  const heroSubtitle = status
+    ? lastStatus!.tone === 'success'
+      ? `Last run succeeded ${lastRunDate} at ${lastRun}. Nightly job scheduled for 02:14 UTC.`
+      : `Last run on ${lastRunDate} at ${lastRun} — ${lastStatus!.label}.`
+    : 'Run a historical import from the onboarding page first.'
+  const lastStatusStat = lastStatus
+    ? lastStatus.tone === 'success' ? 'OK' : lastStatus.tone === 'warn' ? 'Stuck' : 'Error'
+    : '—'
 
   return (
     <>
@@ -92,12 +115,10 @@ export default function SyncPage() {
               Sync pipeline · Chess.com → Parser → Stockfish → Cards
             </div>
             <h1 className="serif" style={{ fontSize: 56, letterSpacing: '-0.03em', margin: 0, lineHeight: 1, fontWeight: 400 }}>
-              {status === null ? 'Never synced.' : status ? 'Everything in order.' : 'Loading…'}
+              {heroHeadline}
             </h1>
             <p style={{ color: 'var(--ink-2)', lineHeight: 1.55, marginTop: 20, fontSize: 16, maxWidth: 540 }}>
-              {status
-                ? `Last run succeeded ${new Date(status.completed_at ?? status.started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at ${lastRun}. Nightly job scheduled for 02:14 UTC.`
-                : 'Run a historical import from the onboarding page first.'}
+              {heroSubtitle}
             </p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
@@ -123,7 +144,7 @@ export default function SyncPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 36, padding: '40px 0', borderBottom: '1px solid var(--line)' }}>
           <Stat big={status?.games_processed ?? '—'} label="Games imported (last run)" mono />
           <Stat big={status?.cards_created ?? '—'} label="Cards created (last run)" mono />
-          <Stat big={status?.error ? 'Partial' : status ? 'OK' : '—'} label="Last run status" mono />
+          <Stat big={lastStatusStat} label="Last run status" mono />
           <Stat big={lastRun} label="Last successful run" mono />
         </div>
 
