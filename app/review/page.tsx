@@ -295,7 +295,7 @@ function ReviewContent() {
     return (
       <>
         <Nav />
-        <div style={{ position: 'relative', zIndex: 1 }}>
+        <div data-testid="completion" style={{ position: 'relative', zIndex: 1 }}>
           <SessionSummary correct={correctCount} total={total} go={() => router.push('/dashboard')} />
         </div>
       </>
@@ -315,7 +315,7 @@ function ReviewContent() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <div>
               <div className="mono" style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
-                Daily review · {index + 1} of {total}
+                Daily review · <span data-testid="progress">{total - index} remaining</span>
               </div>
               <h1 className="serif" style={{ fontSize: 40, letterSpacing: '-0.025em', margin: '6px 0 0', fontWeight: 400 }}>
                 {/* theme not available yet — show classification */}

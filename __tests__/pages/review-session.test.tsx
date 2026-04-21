@@ -1,6 +1,22 @@
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import ReviewPage from '@/app/review/page'
 import type { ReviewOutcome } from '@/lib/fsrs-engine'
+
+// The page has a two-phase flow per card:
+//   1. ReviewBoard calls onResult(outcome) → page enters a "rating" phase with rating buttons
+//   2. User clicks a rating button → page fires PATCH and advances
+// These helpers simulate both steps so tests can express the end-to-end behavior.
+async function submitCorrect() {
+  await act(async () => { capturedOnResult!('firstTry') })
+  const btn = await screen.findByRole('button', { name: /I knew it instantly/i })
+  await act(async () => { fireEvent.click(btn) })
+}
+
+async function submitFailed() {
+  await act(async () => { capturedOnResult!('failed') })
+  const btn = await screen.findByRole('button', { name: /see it again soon/i })
+  await act(async () => { fireEvent.click(btn) })
+}
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -93,9 +109,7 @@ describe('Review Session Page', () => {
     render(<ReviewPage />)
     await waitFor(() => screen.getByTestId('review-board'))
 
-    await act(async () => {
-      capturedOnResult!('firstTry')
-    })
+    await submitCorrect()
 
     // PATCH was called for CARD_A
     const patchCall = (fetchMock as jest.Mock).mock.calls.find(
@@ -118,9 +132,7 @@ describe('Review Session Page', () => {
 
     expect(screen.getByTestId('progress')).toHaveTextContent('2 remaining')
 
-    await act(async () => {
-      capturedOnResult!('firstTry')
-    })
+    await submitCorrect()
 
     await waitFor(() => {
       expect(screen.getByTestId('progress')).toHaveTextContent('1 remaining')
@@ -132,9 +144,7 @@ describe('Review Session Page', () => {
     render(<ReviewPage />)
     await waitFor(() => screen.getByTestId('review-board'))
 
-    await act(async () => {
-      capturedOnResult!('failed')
-    })
+    await submitFailed()
 
     await waitFor(() => {
       expect(screen.getByTestId('completion')).toBeInTheDocument()
