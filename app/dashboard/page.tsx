@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { Nav, Page, Button, Tag, MiniBoard } from '@/components/ui'
 import { StatTile } from '@/components/StatTile'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { DashboardCrashed } from '@/components/DashboardCrashed'
 import {
   useCounts,
   useReviewSession,
@@ -29,6 +31,14 @@ function getDayGreeting() {
 }
 
 export default function DashboardPage() {
+  return (
+    <ErrorBoundary fallback={<DashboardCrashed />}>
+      <DashboardContent />
+    </ErrorBoundary>
+  )
+}
+
+function DashboardContent() {
   const router = useRouter()
   const counts = useCounts()
   const session = useReviewSession('standard')
