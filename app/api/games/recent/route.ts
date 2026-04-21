@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { withAuthedRoute } from '@/lib/with-authed-route'
 import { apiError } from '@/lib/api-response'
+import { getUserCards } from '@/lib/user-cards'
 
 interface GameRow {
   id: string
@@ -79,34 +80,21 @@ export const GET = withAuthedRoute(async ({ req, db, user }) => {
     .single()
   const username = (userRow as { chess_com_username: string | null } | null)?.chess_com_username ?? null
 
-  const { data: stateRows, error: stateError } = await db
-    .from('card_state')
-    .select('card_id')
-    .eq('user_id', user.id)
-
-  if (stateError) {
-    return apiError(500, stateError.message)
-  }
-
-  const userCardIds = (stateRows ?? []).map((r: { card_id: string }) => r.card_id)
-
   const countByGame = new Map<string, number>()
   for (const g of gameList) countByGame.set(g.id, 0)
 
-  if (userCardIds.length > 0) {
-    const { data: cardRows, error: cardsError } = await db
-      .from('cards')
-      .select('id, game_id')
-      .in('id', userCardIds)
+  let cardRows: { id: string; game_id: string | null }[]
+  try {
+    cardRows = await getUserCards<{ id: string; game_id: string | null }>(db, user.id, {
+      select: 'id, game_id',
+    })
+  } catch (err) {
+    return apiError(500, err instanceof Error ? err.message : 'Failed to load cards')
+  }
 
-    if (cardsError) {
-      return apiError(500, cardsError.message)
-    }
-
-    for (const row of (cardRows ?? []) as { id: string; game_id: string | null }[]) {
-      if (row.game_id && countByGame.has(row.game_id)) {
-        countByGame.set(row.game_id, (countByGame.get(row.game_id) ?? 0) + 1)
-      }
+  for (const row of cardRows) {
+    if (row.game_id && countByGame.has(row.game_id)) {
+      countByGame.set(row.game_id, (countByGame.get(row.game_id) ?? 0) + 1)
     }
   }
 
