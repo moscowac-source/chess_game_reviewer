@@ -8,6 +8,7 @@ const config = {
   testEnvironment: "jsdom",
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   testMatch: ["**/?(*.)+(spec|test).[jt]s?(x)"],
+  testPathIgnorePatterns: ["/node_modules/", "/e2e/", "/.next/"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
   },
