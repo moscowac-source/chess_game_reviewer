@@ -111,6 +111,76 @@ function validateUserSettings(
   }
 }
 
+export interface DeckItem {
+  id: string
+  fen: string
+  classification: string
+  theme: string | null
+  created_at: string
+  due_date: string
+  review_count: number
+  stability: number
+}
+
+export interface DeckResponse {
+  items: DeckItem[]
+  total: number
+}
+
+function validateDeckItem(raw: unknown): DeckItem | null {
+  if (!isObj(raw)) return null
+  const { id, fen, classification, theme, created_at, due_date, review_count, stability } = raw
+  if (typeof id !== 'string') return null
+  if (typeof fen !== 'string') return null
+  if (typeof classification !== 'string') return null
+  if (theme !== null && typeof theme !== 'string') return null
+  if (typeof created_at !== 'string') return null
+  if (typeof due_date !== 'string') return null
+  if (typeof review_count !== 'number') return null
+  if (typeof stability !== 'number') return null
+  return {
+    id, fen, classification,
+    theme: theme as string | null,
+    created_at, due_date, review_count, stability,
+  }
+}
+
+function validateDeck(raw: unknown): DeckResponse | null {
+  if (!isObj(raw)) return null
+  if (!Array.isArray(raw.items)) return null
+  if (typeof raw.total !== 'number') return null
+  const items: DeckItem[] = []
+  for (const item of raw.items) {
+    const v = validateDeckItem(item)
+    if (!v) return null
+    items.push(v)
+  }
+  return { items, total: raw.total }
+}
+
+export interface DeckParams {
+  classification?: string
+  theme?: string
+  sort?: string
+  limit?: number
+  offset?: number
+}
+
+function buildDeckUrl(params: DeckParams): string {
+  const qs = new URLSearchParams()
+  if (params.classification) qs.set('classification', params.classification)
+  if (params.theme) qs.set('theme', params.theme)
+  if (params.sort) qs.set('sort', params.sort)
+  if (params.limit !== undefined) qs.set('limit', String(params.limit))
+  if (params.offset !== undefined) qs.set('offset', String(params.offset))
+  const q = qs.toString()
+  return q ? `/api/deck?${q}` : '/api/deck'
+}
+
+export function useDeck(params: DeckParams): FetchResult<DeckResponse> {
+  return useFetchJson(buildDeckUrl(params), validateDeck)
+}
+
 export interface Me {
   email: string | null
   username: string | null
