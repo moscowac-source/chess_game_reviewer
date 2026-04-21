@@ -199,6 +199,33 @@ describe('analyzeGame', () => {
     })
   })
 
+  describe('hang detection', () => {
+    it('throws engine-init-timeout when the engine factory never resolves', async () => {
+      const neverResolvingFactory = () => new Promise<UciEngine>(() => { /* hang */ })
+      await expect(
+        analyzeGame(
+          [{ fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', movePlayed: 'e4' }],
+          neverResolvingFactory,
+          { engineInitTimeoutMs: 50, evalTimeoutMs: 5000 },
+        ),
+      ).rejects.toThrow(/engine-init/)
+    })
+
+    it('throws eval-timeout when the engine never emits bestmove', async () => {
+      const hangingEngine: () => UciEngine = () => ({
+        onmessage: null,
+        postMessage() { /* never respond */ },
+      })
+      await expect(
+        analyzeGame(
+          [{ fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', movePlayed: 'e4' }],
+          hangingEngine,
+          { engineInitTimeoutMs: 5000, evalTimeoutMs: 50 },
+        ),
+      ).rejects.toThrow(/eval/)
+    })
+  })
+
   describe('engine command budget', () => {
     it('uses movetime (not depth) so each eval has a hard per-position time cap', async () => {
       const commands: string[] = []
