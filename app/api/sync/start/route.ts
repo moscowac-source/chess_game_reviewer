@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import { getSessionUserWithUsername } from '@/lib/supabase-server'
+import { createClient, getSessionUserWithUsername } from '@/lib/supabase-server'
 import { inngest as defaultInngest } from '@/lib/inngest/client'
 import { apiError } from '@/lib/api-response'
 
@@ -26,7 +25,7 @@ export async function POST(req: Request, deps: StartDeps | NextRouteContext): Pr
   const mode: 'historical' | 'incremental' =
     body.mode === 'historical' ? 'historical' : 'incremental'
 
-  const db = actualDeps.db ?? supabase
+  const db = actualDeps.db ?? (await createClient())
   const authFn = actualDeps.authFn ?? (() => getSessionUserWithUsername(db))
   const user = await authFn()
   if (!user) return apiError(401, 'Unauthorized')
