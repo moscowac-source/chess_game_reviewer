@@ -656,6 +656,30 @@ Note — Issue #33 mentioned extending `/api/review/counts`, but that endpoint r
 
 ---
 
+### Mini-plan: Issues #47 + #43 + #39 — Auth layer bundle
+
+**What the user will see change.** Nothing visible in the app. Every API route behaves the same: same responses, same status codes, same error bodies. Internal plumbing only.
+
+**What was wrong.** Seven API routes each opened with the same four lines — check the caller is logged in, return 401 if not, wire up the database client. If someone forgot the 401 line in a new route, that route would silently serve data to any caller. Error responses were also inconsistent across routes: some returned `{ error: 'Unauthorized' }`, others had their own shape. And one helper (`getSessionUserWithUsername`) lived privately inside the sync route file when it was already exported from the shared auth module — a near-duplicate in two places.
+
+**What changed.**
+- **#47** — New file `lib/api-response.ts` exports `apiError(status, message, details?)`. One line instead of `NextResponse.json({ error: ... }, { status })` boilerplate everywhere.
+- **#43** — Removed the private `getSessionUserWithUsername` duplicate from `app/api/sync/route.ts`; the sync route now imports the shared version from `lib/supabase-server.ts`. The shared function gained an optional `authFn` parameter so it can be unit-tested without needing Next's request-scoped cookies. Added three boundary tests (no user / user+username / user+missing profile row).
+- **#39** — New file `lib/with-authed-route.ts` exports `withAuthedRoute(handler)`. It owns the auth preamble — pulls `db` and `authFn` from the deps object (falling back to the real Supabase client and real session cookie), calls the auth function, returns 401 when no user, and wraps the business logic in a top-level try/catch that returns 500 on uncaught errors. Handlers receive `{ req, db, user, deps }` — extra per-route deps (like `params` for dynamic routes, or `recordReviewFn` for the card-review route) pass through `deps` unchanged.
+- All 7 identified routes migrated: `games/recent`, `stats/classification`, `stats/streak`, `stats/accuracy`, `review/counts`, `review/session`, `review/cards/[cardId]`.
+- Seven per-route "returns 401 when unauthenticated" tests removed, replaced by one shared suite on the wrapper.
+- Three routes (`sync`, `sync/status`, `user/settings`) stay on their current auth pattern — they have non-standard needs (sync requires the chess.com username; user/settings creates a server client inline).
+
+**Acceptance criteria.**
+- [x] `apiError(status, message, details?)` in `lib/api-response.ts` with a small envelope-shape test
+- [x] `getSessionUserWithUsername` lives only in `lib/supabase-server.ts`, imported by the sync route
+- [x] Three boundary tests for `getSessionUserWithUsername`: null when unauthenticated, user+username when profile exists, user+null when profile missing
+- [x] `withAuthedRoute(handler)` in `lib/with-authed-route.ts` with shared tests for 401, success passthrough, extra-deps forwarding, and the 500 error catch
+- [x] All 7 target routes migrated; per-route 401 tests removed
+- [x] Full test suite passes — 261 tests across 37 suites
+
+---
+
 ## Phase 21: Move Explanations (V2 Enhancement)
 
 **User stories**: TBD

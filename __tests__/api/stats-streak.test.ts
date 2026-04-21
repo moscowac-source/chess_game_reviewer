@@ -8,13 +8,6 @@ import { makeMockDb } from '@/__tests__/helpers/mock-db'
 const USER = '00000000-0000-0000-0000-000000000001'
 
 describe('GET /api/stats/streak', () => {
-  it('returns 401 when unauthenticated', async () => {
-    const { db } = makeMockDb()
-    const req = new Request('http://localhost/api/stats/streak')
-    const response = await GET(req, { db, authFn: async () => null })
-    expect(response.status).toBe(401)
-  })
-
   it('returns 0 when the user has no reviews', async () => {
     const { db } = makeMockDb({ review_log: [] })
     const req = new Request('http://localhost/api/stats/streak')

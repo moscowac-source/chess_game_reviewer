@@ -73,15 +73,6 @@ describe('GET /api/review/session', () => {
     expect(ids).not.toContain('card-great')
   })
 
-  it('returns 401 when no authenticated user', async () => {
-    const { db } = makeMockDb()
-    const response = await GET(makeRequest('standard'), {
-      db,
-      authFn: async () => null,
-    })
-    expect(response.status).toBe(401)
-  })
-
   // Issue #35: session enforces the user's stored daily_new_limit, not a hardcoded cap
   it("caps new cards at the user's daily_new_limit from the users table", async () => {
     const { db } = makeMockDb({

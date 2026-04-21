@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import { getSessionUser } from '@/lib/supabase-server'
+import { withAuthedRoute, type AuthedRouteDeps } from '@/lib/with-authed-route'
+import { apiError } from '@/lib/api-response'
 import { mapOutcomeToRating, recordReview, type ReviewOutcome } from '@/lib/fsrs-engine'
 
 const VALID_OUTCOMES = new Set<ReviewOutcome>([
@@ -11,33 +10,24 @@ const VALID_OUTCOMES = new Set<ReviewOutcome>([
   'failed',
 ])
 
-interface PatchDeps {
+interface PatchDeps extends AuthedRouteDeps {
   params: { cardId: string }
   recordReviewFn?: typeof recordReview
-  db?: SupabaseClient
-  authFn?: () => Promise<{ id: string } | null>
 }
 
-export async function PATCH(req: Request, deps: PatchDeps) {
+export const PATCH = withAuthedRoute<PatchDeps>(async ({ req, db, user, deps }) => {
   const { cardId } = deps.params
-  const db = deps.db ?? supabase
   const recordReviewFn = deps.recordReviewFn ?? recordReview
-  const authFn = deps.authFn ?? getSessionUser
-
-  const user = await authFn()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
 
   const body = await req.json()
   const { outcome } = body
 
   if (!VALID_OUTCOMES.has(outcome)) {
-    return NextResponse.json({ error: 'Invalid outcome' }, { status: 400 })
+    return apiError(400, 'Invalid outcome')
   }
 
   const rating = mapOutcomeToRating(outcome as ReviewOutcome)
   await recordReviewFn(cardId, user.id, rating, db)
 
   return NextResponse.json({ success: true })
-}
+})

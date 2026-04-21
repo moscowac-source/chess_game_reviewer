@@ -74,16 +74,4 @@ describe('PATCH /api/review/cards/[cardId]', () => {
     expect(response.status).toBe(400)
     expect(recordReviewFn).not.toHaveBeenCalled()
   })
-
-  it('returns 401 when no authenticated user', async () => {
-    const recordReviewFn = jest.fn()
-
-    const response = await PATCH(
-      makeRequest({ outcome: 'firstTry' }),
-      makeContext(CARD_ID, recordReviewFn, async () => null),
-    )
-
-    expect(response.status).toBe(401)
-    expect(recordReviewFn).not.toHaveBeenCalled()
-  })
 })

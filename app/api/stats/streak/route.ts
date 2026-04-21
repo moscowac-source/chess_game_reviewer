@@ -1,24 +1,14 @@
 import { NextResponse } from 'next/server'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import { getSessionUser } from '@/lib/supabase-server'
+import { withAuthedRoute, type AuthedRouteDeps } from '@/lib/with-authed-route'
+import { apiError } from '@/lib/api-response'
 import { computeStreak } from '@/lib/streak'
 
-interface StreakDeps {
-  db?: SupabaseClient
-  authFn?: () => Promise<{ id: string } | null>
+interface StreakDeps extends AuthedRouteDeps {
   now?: () => Date
 }
 
-export async function GET(_req: Request, deps: StreakDeps = {}) {
-  const db = deps.db ?? supabase
-  const authFn = deps.authFn ?? getSessionUser
+export const GET = withAuthedRoute<StreakDeps>(async ({ db, user, deps }) => {
   const now = deps.now ?? (() => new Date())
-
-  const user = await authFn()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
 
   const { data, error } = await db
     .from('review_log')
@@ -26,11 +16,11 @@ export async function GET(_req: Request, deps: StreakDeps = {}) {
     .eq('user_id', user.id)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(500, error.message)
   }
 
   const dates = (data ?? []).map((row: { reviewed_at: string }) => new Date(row.reviewed_at))
   const streak = computeStreak(dates, now())
 
   return NextResponse.json({ streak })
-}
+})

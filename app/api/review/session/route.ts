@@ -1,24 +1,10 @@
 import { NextResponse } from 'next/server'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import { getSessionUser } from '@/lib/supabase-server'
+import { withAuthedRoute } from '@/lib/with-authed-route'
 import { buildReviewSession, type ReviewMode } from '@/lib/review-session-manager'
 
 const VALID_MODES = new Set<ReviewMode>(['standard', 'recent', 'mistakes', 'brilliancies'])
 
-interface SessionDeps {
-  db?: SupabaseClient
-  authFn?: () => Promise<{ id: string } | null>
-}
-
-export async function GET(req: Request, deps: SessionDeps = {}) {
-  const db = deps.db ?? supabase
-  const authFn = deps.authFn ?? getSessionUser
-  const user = await authFn()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const GET = withAuthedRoute(async ({ req, db, user }) => {
   const { searchParams } = new URL(req.url)
   const modeParam = searchParams.get('mode') ?? 'standard'
   const mode: ReviewMode = VALID_MODES.has(modeParam as ReviewMode)
@@ -38,4 +24,4 @@ export async function GET(req: Request, deps: SessionDeps = {}) {
 
   const session = await buildReviewSession(user.id, db, { mode, dailyNewLimit })
   return NextResponse.json(session)
-}
+})

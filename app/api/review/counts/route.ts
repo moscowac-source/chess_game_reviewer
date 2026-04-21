@@ -1,25 +1,10 @@
 import { NextResponse } from 'next/server'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import { getSessionUser } from '@/lib/supabase-server'
+import { withAuthedRoute } from '@/lib/with-authed-route'
 import { buildReviewSession, type ReviewMode } from '@/lib/review-session-manager'
 
 const MODES: ReviewMode[] = ['standard', 'recent', 'mistakes', 'brilliancies']
 
-interface CountsDeps {
-  db?: SupabaseClient
-  authFn?: () => Promise<{ id: string } | null>
-}
-
-export async function GET(_req: Request, deps: CountsDeps = {}) {
-  const db = deps.db ?? supabase
-  const authFn = deps.authFn ?? getSessionUser
-
-  const user = await authFn()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const GET = withAuthedRoute(async ({ db, user }) => {
   const results = await Promise.all(
     MODES.map(async (mode) => {
       const session = await buildReviewSession(user.id, db, { mode })
@@ -29,4 +14,4 @@ export async function GET(_req: Request, deps: CountsDeps = {}) {
 
   const counts = Object.fromEntries(results)
   return NextResponse.json(counts)
-}
+})

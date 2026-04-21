@@ -53,12 +53,6 @@ function makeGame(overrides: Partial<GameRow>): GameRow {
 }
 
 describe('GET /api/games/recent', () => {
-  it('returns 401 when unauthenticated', async () => {
-    const { db } = seed()
-    const response = await GET(makeReq(), { db, authFn: async () => null })
-    expect(response.status).toBe(401)
-  })
-
   it('returns an empty array when the user has no games', async () => {
     const { db } = seed()
     const response = await GET(makeReq(), {

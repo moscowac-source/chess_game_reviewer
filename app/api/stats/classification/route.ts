@@ -1,22 +1,8 @@
 import { NextResponse } from 'next/server'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import { getSessionUser } from '@/lib/supabase-server'
+import { withAuthedRoute } from '@/lib/with-authed-route'
+import { apiError } from '@/lib/api-response'
 
-interface ClassificationDeps {
-  db?: SupabaseClient
-  authFn?: () => Promise<{ id: string } | null>
-}
-
-export async function GET(_req: Request, deps: ClassificationDeps = {}) {
-  const db = deps.db ?? supabase
-  const authFn = deps.authFn ?? getSessionUser
-
-  const user = await authFn()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const GET = withAuthedRoute(async ({ db, user }) => {
   const counts = { blunder: 0, mistake: 0, great: 0, brilliant: 0 }
 
   const { data: stateRows, error: stateError } = await db
@@ -25,7 +11,7 @@ export async function GET(_req: Request, deps: ClassificationDeps = {}) {
     .eq('user_id', user.id)
 
   if (stateError) {
-    return NextResponse.json({ error: stateError.message }, { status: 500 })
+    return apiError(500, stateError.message)
   }
 
   const cardIds = (stateRows ?? []).map((r: { card_id: string }) => r.card_id)
@@ -39,7 +25,7 @@ export async function GET(_req: Request, deps: ClassificationDeps = {}) {
     .in('id', cardIds)
 
   if (cardError) {
-    return NextResponse.json({ error: cardError.message }, { status: 500 })
+    return apiError(500, cardError.message)
   }
 
   for (const row of (cardRows ?? []) as { classification: string }[]) {
@@ -49,4 +35,4 @@ export async function GET(_req: Request, deps: ClassificationDeps = {}) {
   }
 
   return NextResponse.json(counts)
-}
+})

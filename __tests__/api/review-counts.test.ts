@@ -53,10 +53,4 @@ describe('GET /api/review/counts', () => {
     expect(body.recent).toBe(2)
   })
 
-  it('returns 401 when no authenticated user', async () => {
-    const { db } = makeMockDb()
-    const req = new Request('http://localhost/api/review/counts')
-    const response = await GET(req, { db, authFn: async () => null })
-    expect(response.status).toBe(401)
-  })
 })

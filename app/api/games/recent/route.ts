@@ -1,12 +1,6 @@
 import { NextResponse } from 'next/server'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import { getSessionUser } from '@/lib/supabase-server'
-
-interface RecentDeps {
-  db?: SupabaseClient
-  authFn?: () => Promise<{ id: string } | null>
-}
+import { withAuthedRoute } from '@/lib/with-authed-route'
+import { apiError } from '@/lib/api-response'
 
 interface GameRow {
   id: string
@@ -49,25 +43,17 @@ function deriveOpponentAndOutcome(
   return { opponent, outcome: 'unknown' }
 }
 
-export async function GET(req: Request, deps: RecentDeps = {}) {
-  const db = deps.db ?? supabase
-  const authFn = deps.authFn ?? getSessionUser
-
-  const user = await authFn()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const GET = withAuthedRoute(async ({ req, db, user }) => {
   const { searchParams } = new URL(req.url)
   const rawLimit = searchParams.get('limit')
   let limit = DEFAULT_LIMIT
   if (rawLimit !== null) {
     if (!/^-?\d+$/.test(rawLimit)) {
-      return NextResponse.json({ error: 'Invalid limit' }, { status: 400 })
+      return apiError(400, 'Invalid limit')
     }
     const parsed = parseInt(rawLimit, 10)
     if (parsed < 1 || parsed > MAX_LIMIT) {
-      return NextResponse.json({ error: 'Invalid limit' }, { status: 400 })
+      return apiError(400, 'Invalid limit')
     }
     limit = parsed
   }
@@ -80,7 +66,7 @@ export async function GET(req: Request, deps: RecentDeps = {}) {
     .limit(limit)) as { data: GameRow[] | null; error: { message: string } | null }
 
   if (gamesError) {
-    return NextResponse.json({ error: gamesError.message }, { status: 500 })
+    return apiError(500, gamesError.message)
   }
 
   const gameList = games ?? []
@@ -99,7 +85,7 @@ export async function GET(req: Request, deps: RecentDeps = {}) {
     .eq('user_id', user.id)
 
   if (stateError) {
-    return NextResponse.json({ error: stateError.message }, { status: 500 })
+    return apiError(500, stateError.message)
   }
 
   const userCardIds = (stateRows ?? []).map((r: { card_id: string }) => r.card_id)
@@ -114,7 +100,7 @@ export async function GET(req: Request, deps: RecentDeps = {}) {
       .in('id', userCardIds)
 
     if (cardsError) {
-      return NextResponse.json({ error: cardsError.message }, { status: 500 })
+      return apiError(500, cardsError.message)
     }
 
     for (const row of (cardRows ?? []) as { id: string; game_id: string | null }[]) {
@@ -130,4 +116,4 @@ export async function GET(req: Request, deps: RecentDeps = {}) {
       return { ...g, cardCount: countByGame.get(g.id) ?? 0, opponent, outcome }
     }),
   )
-}
+})
