@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export async function createClient() {
   const cookieStore = await cookies()
@@ -30,17 +31,17 @@ export async function getSessionUser(): Promise<{ id: string } | null> {
 
 /** Returns the authenticated user plus their chess_com_username, or null. */
 export async function getSessionUserWithUsername(
-  db: Awaited<ReturnType<typeof createClient>>
+  db: SupabaseClient,
+  authFn: () => Promise<{ id: string } | null> = getSessionUser,
 ): Promise<{ id: string; chess_com_username: string | null } | null> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  const sessionUser = await authFn()
+  if (!sessionUser) return null
 
   const { data } = await db
     .from('users')
     .select('chess_com_username')
-    .eq('id', user.id)
+    .eq('id', sessionUser.id)
     .single()
 
-  return { id: user.id, chess_com_username: data?.chess_com_username ?? null }
+  return { id: sessionUser.id, chess_com_username: data?.chess_com_username ?? null }
 }

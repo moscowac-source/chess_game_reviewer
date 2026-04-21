@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
-import { createClient, getSessionUser } from '@/lib/supabase-server'
+import { createClient, getSessionUserWithUsername } from '@/lib/supabase-server'
 import { runSync, type SyncOptions, type SyncLogger } from '@/lib/sync-orchestrator'
 import type { UciEngine } from '@/lib/stockfish-analyzer'
 
@@ -40,19 +40,6 @@ function makeSupabaseSyncLogger(db: SupabaseClient, mode: 'historical' | 'increm
       }).eq('id', id)
     },
   }
-}
-
-async function getSessionUserWithUsername(db: SupabaseClient): Promise<AuthUser | null> {
-  const sessionUser = await getSessionUser()
-  if (!sessionUser) return null
-
-  const { data } = await db
-    .from('users')
-    .select('chess_com_username')
-    .eq('id', sessionUser.id)
-    .single()
-
-  return { id: sessionUser.id, chess_com_username: data?.chess_com_username ?? null }
 }
 
 export async function POST(req: Request, deps: SyncDeps = {}) {
