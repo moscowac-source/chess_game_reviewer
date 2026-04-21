@@ -3,65 +3,11 @@
  */
 
 import { GET } from '@/app/api/review/session/route'
-
-// ---------------------------------------------------------------------------
-// Mock helpers
-// ---------------------------------------------------------------------------
-
-type Row = Record<string, unknown>
+import { makeMockDb } from '@/__tests__/helpers/mock-db'
 
 const PAST = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
 const TODAY = new Date().toISOString()
 const USER = '00000000-0000-0000-0000-000000000001'
-
-function makeMockDb(cardStates: Row[] = [], cards: Row[] = [], reviewLogs: Row[] = [], userRow: Row | null = null) {
-  return {
-    from: (table: string) => {
-      if (table === 'card_state') {
-        return {
-          select: (_cols: string) => ({
-            eq: (_col: string, _val: unknown) => ({
-              data: cardStates,
-              error: null,
-              then: (resolve: (v: { data: Row[]; error: null }) => unknown) =>
-                Promise.resolve({ data: cardStates, error: null }).then(resolve),
-            }),
-          }),
-        }
-      }
-      if (table === 'review_log') {
-        return {
-          select: (_cols: string) => ({
-            eq: (_col: string, _val: unknown) =>
-              Promise.resolve({ data: reviewLogs, error: null }),
-          }),
-          insert: () => Promise.resolve({ error: null }),
-        }
-      }
-      if (table === 'cards') {
-        return {
-          select: (_cols: string) => ({
-            in: (_col: string, vals: unknown[]) =>
-              Promise.resolve({
-                data: cards.filter((c) => vals.includes(c['id'])),
-                error: null,
-              }),
-          }),
-        }
-      }
-      if (table === 'users') {
-        return {
-          select: (_cols: string) => ({
-            eq: (_col: string, _val: unknown) => ({
-              single: () => Promise.resolve({ data: userRow, error: null }),
-            }),
-          }),
-        }
-      }
-      return {}
-    },
-  }
-}
 
 function makeRequest(mode?: string) {
   const url = mode
@@ -70,23 +16,20 @@ function makeRequest(mode?: string) {
   return new Request(url, { method: 'GET' })
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('GET /api/review/session', () => {
   it('returns a session with the correct shape', async () => {
-    const cardStates: Row[] = [
-      { card_id: 'card-1', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
-      { card_id: 'card-2', user_id: USER, state: 'new', due_date: TODAY, stability: 0, difficulty: 0, review_count: 0 },
-    ]
-    const cards: Row[] = [
-      { id: 'card-1', fen: 'fen1', correct_move: 'e4', classification: 'blunder' },
-      { id: 'card-2', fen: 'fen2', correct_move: 'Nf3', classification: 'mistake' },
-    ]
-    const db = makeMockDb(cardStates, cards)
+    const { db } = makeMockDb({
+      card_state: [
+        { card_id: 'card-1', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+        { card_id: 'card-2', user_id: USER, state: 'new', due_date: TODAY, stability: 0, difficulty: 0, review_count: 0 },
+      ],
+      cards: [
+        { id: 'card-1', fen: 'fen1', correct_move: 'e4', classification: 'blunder' },
+        { id: 'card-2', fen: 'fen2', correct_move: 'Nf3', classification: 'mistake' },
+      ],
+    })
 
-    const response = await GET(makeRequest(), { db: db as never, authFn: async () => ({ id: USER }) })
+    const response = await GET(makeRequest(), { db, authFn: async () => ({ id: USER }) })
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -99,9 +42,9 @@ describe('GET /api/review/session', () => {
   })
 
   it('returns an empty session when no cards exist', async () => {
-    const db = makeMockDb([], [])
+    const { db } = makeMockDb()
 
-    const response = await GET(makeRequest(), { db: db as never, authFn: async () => ({ id: USER }) })
+    const response = await GET(makeRequest(), { db, authFn: async () => ({ id: USER }) })
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -110,17 +53,18 @@ describe('GET /api/review/session', () => {
   })
 
   it('mode=mistakes filters to only blunder/mistake cards via query param', async () => {
-    const cardStates: Row[] = [
-      { card_id: 'card-blunder', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
-      { card_id: 'card-great',   user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
-    ]
-    const cards: Row[] = [
-      { id: 'card-blunder', fen: 'fen1', correct_move: 'e4',  classification: 'blunder' },
-      { id: 'card-great',   fen: 'fen2', correct_move: 'Nf3', classification: 'great' },
-    ]
-    const db = makeMockDb(cardStates, cards)
+    const { db } = makeMockDb({
+      card_state: [
+        { card_id: 'card-blunder', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+        { card_id: 'card-great', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+      ],
+      cards: [
+        { id: 'card-blunder', fen: 'fen1', correct_move: 'e4', classification: 'blunder' },
+        { id: 'card-great', fen: 'fen2', correct_move: 'Nf3', classification: 'great' },
+      ],
+    })
 
-    const response = await GET(makeRequest('mistakes'), { db: db as never, authFn: async () => ({ id: USER }) })
+    const response = await GET(makeRequest('mistakes'), { db, authFn: async () => ({ id: USER }) })
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -130,9 +74,9 @@ describe('GET /api/review/session', () => {
   })
 
   it('returns 401 when no authenticated user', async () => {
-    const db = makeMockDb()
+    const { db } = makeMockDb()
     const response = await GET(makeRequest('standard'), {
-      db: db as never,
+      db,
       authFn: async () => null,
     })
     expect(response.status).toBe(401)
@@ -140,26 +84,27 @@ describe('GET /api/review/session', () => {
 
   // Issue #35: session enforces the user's stored daily_new_limit, not a hardcoded cap
   it("caps new cards at the user's daily_new_limit from the users table", async () => {
-    // 10 new cards available; users row says daily_new_limit = 7
-    const cardStates: Row[] = Array.from({ length: 10 }, (_, i) => ({
-      card_id: `new-card-${i}`,
-      user_id: USER,
-      state: 'new',
-      due_date: TODAY,
-      stability: 0,
-      difficulty: 0,
-      review_count: 0,
-    }))
-    const cards: Row[] = Array.from({ length: 10 }, (_, i) => ({
-      id: `new-card-${i}`,
-      fen: `fen-${i}`,
-      correct_move: 'e4',
-      classification: 'blunder',
-    }))
-    const db = makeMockDb(cardStates, cards, [], { daily_new_limit: 7 })
+    const { db } = makeMockDb({
+      users: [{ id: USER, daily_new_limit: 7 }],
+      card_state: Array.from({ length: 10 }, (_, i) => ({
+        card_id: `new-card-${i}`,
+        user_id: USER,
+        state: 'new',
+        due_date: TODAY,
+        stability: 0,
+        difficulty: 0,
+        review_count: 0,
+      })),
+      cards: Array.from({ length: 10 }, (_, i) => ({
+        id: `new-card-${i}`,
+        fen: `fen-${i}`,
+        correct_move: 'e4',
+        classification: 'blunder',
+      })),
+    })
 
     const response = await GET(makeRequest(), {
-      db: db as never,
+      db,
       authFn: async () => ({ id: USER }),
     })
     const body = await response.json()

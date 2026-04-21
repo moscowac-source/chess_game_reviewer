@@ -635,6 +635,27 @@ Note — Issue #33 mentioned extending `/api/review/counts`, but that endpoint r
 
 ---
 
+### Mini-plan: Issue #42 — Shared Supabase mock factory for API tests
+
+**What the user will see change.** Nothing visible in the app. This is an internal test-infrastructure change. Behind the scenes, every API-route test that used to build its own hand-rolled fake database now uses one shared helper. New API routes can be tested in a few lines instead of re-implementing the same fluent-chain mock every time.
+
+**What was wrong.** Eleven test files each defined a local `makeMockDb(...)` helper, each one a slightly different reinvention of Supabase's `.from().select().eq().in().order().limit().single()` chain. When a new route needed a different operator (like `.gte()` or `.maybeSingle()`), the author copied the closest existing shape and tweaked it. Any bug in one copy had to be found and fixed in every copy. Writing a new test meant writing 30–80 lines of mock plumbing before getting to the actual assertion.
+
+**What changed.**
+- New file `__tests__/helpers/mock-db.ts` exports `makeMockDb(seed)`. You give it seed rows keyed by table name (e.g. `{ users: [...], games: [...], card_state: [...] }`) and it returns `{ db, tables, inserted, updated, deleted }`. The `db` object mimics Supabase's fluent chain honestly — it applies filters, ordering, and limits to the seed rows and returns the result. Writes mutate the seeded tables so follow-up reads see the change.
+- Supports every operator the existing API routes actually call: `select`, `eq`, `in`, `gte`, `lte`, `order`, `limit`, `single`, `maybeSingle`, `insert`, `update`, `upsert`, `delete`, `match`. Auto-generates ids for inserted rows that don't specify one.
+- All 10 existing API-route test files were migrated to use the shared helper. `review-card.test.ts` was left alone because it doesn't use a DB mock.
+- `jest.config.js` got a `testMatch` entry so Jest only picks up `*.test.*` files — otherwise it would try to run the helper module itself as a test.
+
+**Acceptance criteria.**
+- [x] `__tests__/helpers/mock-db.ts` exports `makeMockDb(seed)` with operator parity to existing route usage
+- [x] `__tests__/helpers/mock-db.test.ts` exercises the helper (read path, write path, seed isolation) and passes
+- [x] All 10 migratable API test files use the shared helper; local `makeMockDb` copies are removed
+- [x] Full test suite (`npx jest`) passes — 257 tests across 34 suites
+- [x] `jest.config.js` scopes test discovery to `*.test.*` so non-test helpers aren't misread as test files
+
+---
+
 ## Phase 21: Move Explanations (V2 Enhancement)
 
 **User stories**: TBD

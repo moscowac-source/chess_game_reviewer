@@ -3,55 +3,23 @@
  */
 
 import { GET } from '@/app/api/stats/classification/route'
+import { makeMockDb } from '@/__tests__/helpers/mock-db'
 
 const USER = '00000000-0000-0000-0000-000000000001'
 
-type CardStateRow = { card_id: string; user_id: string }
-type CardRow = { id: string; classification: string }
-
-function makeMockDb(cardStates: CardStateRow[], cards: CardRow[]) {
-  return {
-    from: (table: string) => {
-      if (table === 'card_state') {
-        return {
-          select: (_cols: string) => ({
-            eq: (_col: string, userId: string) =>
-              Promise.resolve({
-                data: cardStates.filter((s) => s.user_id === userId),
-                error: null,
-              }),
-          }),
-        }
-      }
-      if (table === 'cards') {
-        return {
-          select: (_cols: string) => ({
-            in: (_col: string, ids: string[]) =>
-              Promise.resolve({
-                data: cards.filter((c) => ids.includes(c.id)),
-                error: null,
-              }),
-          }),
-        }
-      }
-      return {}
-    },
-  }
-}
-
 describe('GET /api/stats/classification', () => {
   it('returns 401 when unauthenticated', async () => {
-    const db = makeMockDb([], [])
+    const { db } = makeMockDb()
     const req = new Request('http://localhost/api/stats/classification')
-    const response = await GET(req, { db: db as never, authFn: async () => null })
+    const response = await GET(req, { db, authFn: async () => null })
     expect(response.status).toBe(401)
   })
 
   it('returns zeros when the user has no cards', async () => {
-    const db = makeMockDb([], [])
+    const { db } = makeMockDb()
     const req = new Request('http://localhost/api/stats/classification')
     const response = await GET(req, {
-      db: db as never,
+      db,
       authFn: async () => ({ id: USER }),
     })
     const body = await response.json()
@@ -60,26 +28,27 @@ describe('GET /api/stats/classification', () => {
   })
 
   it("counts the user's cards grouped by classification", async () => {
-    const cardStates: CardStateRow[] = [
-      { card_id: 'c1', user_id: USER },
-      { card_id: 'c2', user_id: USER },
-      { card_id: 'c3', user_id: USER },
-      { card_id: 'c4', user_id: USER },
-      { card_id: 'c5', user_id: USER },
-      { card_id: 'c6', user_id: USER },
-    ]
-    const cards: CardRow[] = [
-      { id: 'c1', classification: 'blunder' },
-      { id: 'c2', classification: 'blunder' },
-      { id: 'c3', classification: 'mistake' },
-      { id: 'c4', classification: 'great' },
-      { id: 'c5', classification: 'brilliant' },
-      { id: 'c6', classification: 'brilliant' },
-    ]
-    const db = makeMockDb(cardStates, cards)
+    const { db } = makeMockDb({
+      card_state: [
+        { card_id: 'c1', user_id: USER },
+        { card_id: 'c2', user_id: USER },
+        { card_id: 'c3', user_id: USER },
+        { card_id: 'c4', user_id: USER },
+        { card_id: 'c5', user_id: USER },
+        { card_id: 'c6', user_id: USER },
+      ],
+      cards: [
+        { id: 'c1', classification: 'blunder' },
+        { id: 'c2', classification: 'blunder' },
+        { id: 'c3', classification: 'mistake' },
+        { id: 'c4', classification: 'great' },
+        { id: 'c5', classification: 'brilliant' },
+        { id: 'c6', classification: 'brilliant' },
+      ],
+    })
     const req = new Request('http://localhost/api/stats/classification')
     const response = await GET(req, {
-      db: db as never,
+      db,
       authFn: async () => ({ id: USER }),
     })
     const body = await response.json()
@@ -88,18 +57,19 @@ describe('GET /api/stats/classification', () => {
   })
 
   it('ignores classifications outside the four categories', async () => {
-    const cardStates: CardStateRow[] = [
-      { card_id: 'c1', user_id: USER },
-      { card_id: 'c2', user_id: USER },
-    ]
-    const cards: CardRow[] = [
-      { id: 'c1', classification: 'blunder' },
-      { id: 'c2', classification: 'unknown' },
-    ]
-    const db = makeMockDb(cardStates, cards)
+    const { db } = makeMockDb({
+      card_state: [
+        { card_id: 'c1', user_id: USER },
+        { card_id: 'c2', user_id: USER },
+      ],
+      cards: [
+        { id: 'c1', classification: 'blunder' },
+        { id: 'c2', classification: 'unknown' },
+      ],
+    })
     const req = new Request('http://localhost/api/stats/classification')
     const response = await GET(req, {
-      db: db as never,
+      db,
       authFn: async () => ({ id: USER }),
     })
     const body = await response.json()
@@ -108,20 +78,21 @@ describe('GET /api/stats/classification', () => {
 
   it("only counts the authenticated user's cards", async () => {
     const OTHER = '00000000-0000-0000-0000-000000000002'
-    const cardStates: CardStateRow[] = [
-      { card_id: 'c1', user_id: USER },
-      { card_id: 'c2', user_id: OTHER },
-      { card_id: 'c3', user_id: OTHER },
-    ]
-    const cards: CardRow[] = [
-      { id: 'c1', classification: 'blunder' },
-      { id: 'c2', classification: 'brilliant' },
-      { id: 'c3', classification: 'great' },
-    ]
-    const db = makeMockDb(cardStates, cards)
+    const { db } = makeMockDb({
+      card_state: [
+        { card_id: 'c1', user_id: USER },
+        { card_id: 'c2', user_id: OTHER },
+        { card_id: 'c3', user_id: OTHER },
+      ],
+      cards: [
+        { id: 'c1', classification: 'blunder' },
+        { id: 'c2', classification: 'brilliant' },
+        { id: 'c3', classification: 'great' },
+      ],
+    })
     const req = new Request('http://localhost/api/stats/classification')
     const response = await GET(req, {
-      db: db as never,
+      db,
       authFn: async () => ({ id: USER }),
     })
     const body = await response.json()

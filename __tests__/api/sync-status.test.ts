@@ -3,16 +3,12 @@
  */
 
 import { GET } from '@/app/api/sync/status/route'
-
-// ---------------------------------------------------------------------------
-// Mock helpers
-// ---------------------------------------------------------------------------
+import { makeMockDb } from '@/__tests__/helpers/mock-db'
 
 function makeStatusRequest() {
   return new Request('http://localhost/api/sync/status', { method: 'GET' })
 }
 
-// A fake sync_log row that matches the SyncLog shape
 const FIXTURE_LOG = {
   id: 'abc-123',
   user_id: 'dev-user',
@@ -24,37 +20,13 @@ const FIXTURE_LOG = {
   error: null,
 }
 
-// Builds a fake DB that returns `rows` when sync_log is queried
-function makeMockDb(rows: typeof FIXTURE_LOG[] = []) {
-  return {
-    from: (table: string) => {
-      if (table === 'sync_log') {
-        return {
-          select: (_cols: string) => ({
-            order: (_col: string, _opts: unknown) => ({
-              limit: (_n: number) =>
-                Promise.resolve({ data: rows, error: null }),
-            }),
-          }),
-        }
-      }
-      return {}
-    },
-  }
-}
-
 const AUTH_FN = async () => ({ id: 'dev-user-id' })
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('GET /api/sync/status', () => {
-  // Tracer bullet: returns the most recent sync log entry
   it('returns the most recent sync log entry', async () => {
-    const db = makeMockDb([FIXTURE_LOG])
+    const { db } = makeMockDb({ sync_log: [FIXTURE_LOG] })
 
-    const response = await GET(makeStatusRequest(), { db: db as never, authFn: AUTH_FN })
+    const response = await GET(makeStatusRequest(), { db, authFn: AUTH_FN })
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -65,11 +37,10 @@ describe('GET /api/sync/status', () => {
     expect(body.error).toBeNull()
   })
 
-  // Returns null when no syncs have ever run
   it('returns null when no sync log entries exist', async () => {
-    const db = makeMockDb([])
+    const { db } = makeMockDb({ sync_log: [] })
 
-    const response = await GET(makeStatusRequest(), { db: db as never, authFn: AUTH_FN })
+    const response = await GET(makeStatusRequest(), { db, authFn: AUTH_FN })
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -77,8 +48,8 @@ describe('GET /api/sync/status', () => {
   })
 
   it('returns 401 when no authenticated user', async () => {
-    const db = makeMockDb([FIXTURE_LOG])
-    const response = await GET(makeStatusRequest(), { db: db as never, authFn: async () => null })
+    const { db } = makeMockDb({ sync_log: [FIXTURE_LOG] })
+    const response = await GET(makeStatusRequest(), { db, authFn: async () => null })
     expect(response.status).toBe(401)
   })
 })
