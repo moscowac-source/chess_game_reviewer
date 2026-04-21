@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Nav, Page, Button, Tag, Stat, MiniBoard } from '@/components/ui'
 import type { SyncLog } from '@/types/database'
+import type { SessionCard, ReviewSession } from '@/lib/review-session-manager'
 
 interface ModeCounts {
   standard: number
@@ -37,29 +38,6 @@ function outcomeLabel(outcome: RecentGame['outcome']): string {
   if (outcome === 'loss') return 'Loss'
   if (outcome === 'draw') return 'Draw'
   return '—'
-}
-
-interface SessionCard {
-  cardId: string
-  fen: string
-  correctMove: string
-  classification: string
-  isNew: boolean
-  theme: string | null
-  note: string | null
-}
-
-interface ReviewSession {
-  cards: SessionCard[]
-  totalDue: number
-  newCardsToday: number
-}
-
-type CardKind = 'blunder' | 'mistake' | 'brilliant' | 'great'
-
-function classificationToKind(c: string): CardKind {
-  if (c === 'blunder' || c === 'mistake' || c === 'brilliant' || c === 'great') return c as CardKind
-  return 'blunder'
 }
 
 function getDayGreeting() {
@@ -181,7 +159,7 @@ export default function DashboardPage() {
                 <MiniBoard fen={nextCard.fen} size={88} />
                 <div>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
-                    <Tag kind={classificationToKind(nextCard.classification)}>{nextCard.classification}</Tag>
+                    <Tag kind={nextCard.classification}>{nextCard.classification}</Tag>
                     {nextCard.theme && (
                       <span className="mono" style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                         {nextCard.theme}
@@ -353,7 +331,7 @@ export default function DashboardPage() {
                       {c.theme && <> · {c.theme}</>}
                     </div>
                   </div>
-                  <Tag kind={classificationToKind(c.classification)}>{c.classification}</Tag>
+                  <Tag kind={c.classification}>{c.classification}</Tag>
                   <div className="mono" style={{ color: 'var(--muted)', fontSize: 11 }}>→</div>
                 </button>
               ))}

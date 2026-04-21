@@ -4,31 +4,9 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Nav, Tag, Button } from '@/components/ui'
 import { ReviewBoard, type Outcome } from '@/components/ReviewBoard'
-
-interface SessionCard {
-  cardId: string
-  fen: string
-  correctMove: string
-  classification: string
-  isNew: boolean
-  theme: string | null
-  note: string | null
-  cpl: number | null
-}
-
-interface ReviewSession {
-  cards: SessionCard[]
-  totalDue: number
-  newCardsToday: number
-}
+import type { SessionCard, ReviewSession } from '@/lib/review-session-manager'
 
 type Phase = 'board' | 'rating' | 'done'
-type CardKind = 'blunder' | 'mistake' | 'brilliant' | 'great'
-
-function classificationToKind(c: string): CardKind {
-  if (c === 'blunder' || c === 'mistake' || c === 'brilliant' || c === 'great') return c as CardKind
-  return 'blunder'
-}
 
 function sideToMove(fen: string): 'white' | 'black' {
   return fen.split(' ')[1] === 'b' ? 'black' : 'white'
@@ -76,7 +54,6 @@ function SidePanel({
   onReveal: () => void
   onRate: (o: Outcome) => void
 }) {
-  const kind = classificationToKind(card.classification)
   const isPositive = card.classification === 'brilliant' || card.classification === 'great'
 
   return (
@@ -85,7 +62,7 @@ function SidePanel({
       <div style={{ border: '1px solid var(--line)', padding: '18px 20px', marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Tag kind={kind}>{card.classification}</Tag>
+            <Tag kind={card.classification}>{card.classification}</Tag>
             {card.theme && (
               <span className="mono" style={{ fontSize: 10, color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                 {card.theme}
