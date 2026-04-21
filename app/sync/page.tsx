@@ -1,25 +1,20 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Nav, Page, Button, Stat } from '@/components/ui'
+import { useSyncStatus, useSyncHistory } from '@/hooks/dashboard'
 import type { SyncLog } from '@/types/database'
 
 export default function SyncPage() {
-  const [status, setStatus] = useState<SyncLog | null | undefined>(undefined)
-  const [history, setHistory] = useState<SyncLog[]>([])
+  const statusFetch = useSyncStatus()
+  const historyFetch = useSyncHistory()
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
 
-  async function fetchData() {
-    const [s, h] = await Promise.all([
-      fetch('/api/sync/status').then((r) => r.json()),
-      fetch('/api/sync/history').then((r) => r.json()),
-    ])
-    setStatus(s)
-    setHistory(Array.isArray(h) ? h : [])
-  }
-
-  useEffect(() => { fetchData() }, [])
+  const status: SyncLog | null | undefined = statusFetch.loading
+    ? undefined
+    : statusFetch.data?.log ?? null
+  const history: SyncLog[] = historyFetch.data ?? []
 
   async function handleSyncNow() {
     setSyncing(true)
@@ -33,7 +28,8 @@ export default function SyncPage() {
       const body = await res.json().catch(() => ({}))
       setSyncError(body.error ?? `Sync failed (${res.status})`)
     }
-    await fetchData()
+    statusFetch.refetch()
+    historyFetch.refetch()
     setSyncing(false)
   }
 

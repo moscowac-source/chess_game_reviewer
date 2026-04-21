@@ -92,6 +92,11 @@ function validateSyncStatus(raw: unknown): { log: SyncLog | null } | null {
   return { log: raw as unknown as SyncLog }
 }
 
+function validateSyncHistory(raw: unknown): SyncLog[] | null {
+  if (!Array.isArray(raw)) return null
+  return raw as SyncLog[]
+}
+
 export function useCounts(): FetchResult<ModeCounts> {
   return useFetchJson('/api/review/counts', validateCounts)
 }
@@ -120,4 +125,8 @@ export function useRecentGames(limit: number): FetchResult<RecentGame[]> {
 
 export function useSyncStatus(): FetchResult<{ log: SyncLog | null }> {
   return useFetchJson('/api/sync/status', validateSyncStatus)
+}
+
+export function useSyncHistory(): FetchResult<SyncLog[]> {
+  return useFetchJson('/api/sync/history', validateSyncHistory)
 }
