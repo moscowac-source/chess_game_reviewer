@@ -2,7 +2,8 @@
  * @jest-environment node
  */
 
-import { PATCH } from '@/app/api/review/cards/[cardId]/route'
+import { GET, PATCH } from '@/app/api/review/cards/[cardId]/route'
+import { makeMockDb } from '@/__tests__/helpers/mock-db'
 import type { ReviewRating } from '@/types/database'
 
 const CARD_ID = 'card-0000-0000-0000-000000000001'
@@ -73,5 +74,81 @@ describe('PATCH /api/review/cards/[cardId]', () => {
 
     expect(response.status).toBe(400)
     expect(recordReviewFn).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /api/review/cards/[cardId]', () => {
+  function makeGetRequest(cardId: string) {
+    return new Request(`http://localhost/api/review/cards/${cardId}`, { method: 'GET' })
+  }
+
+  it('returns the card for the owning user', async () => {
+    const { db } = makeMockDb({
+      card_state: [{ card_id: CARD_ID, user_id: USER_ID }],
+      cards: [{
+        id: CARD_ID,
+        fen: 'fen-abc',
+        correct_move: 'e4',
+        classification: 'blunder',
+        theme: 'opening',
+        note: null,
+        cpl: 310,
+      }],
+    })
+
+    const response = await GET(makeGetRequest(CARD_ID), {
+      db,
+      authFn: async () => ({ id: USER_ID }),
+      params: Promise.resolve({ cardId: CARD_ID }),
+    })
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toEqual({
+      cardId: CARD_ID,
+      fen: 'fen-abc',
+      correctMove: 'e4',
+      classification: 'blunder',
+      isNew: false,
+      theme: 'opening',
+      note: null,
+      cpl: 310,
+    })
+  })
+
+  it('returns 404 when the card id is unknown', async () => {
+    const { db } = makeMockDb({ card_state: [], cards: [] })
+
+    const response = await GET(makeGetRequest('missing'), {
+      db,
+      authFn: async () => ({ id: USER_ID }),
+      params: Promise.resolve({ cardId: 'missing' }),
+    })
+
+    expect(response.status).toBe(404)
+  })
+
+  it("returns 404 when the card belongs to a different user", async () => {
+    const OTHER_USER = '00000000-0000-0000-0000-000000000999'
+    const { db } = makeMockDb({
+      card_state: [{ card_id: CARD_ID, user_id: OTHER_USER }],
+      cards: [{
+        id: CARD_ID,
+        fen: 'fen-abc',
+        correct_move: 'e4',
+        classification: 'blunder',
+        theme: null,
+        note: null,
+        cpl: null,
+      }],
+    })
+
+    const response = await GET(makeGetRequest(CARD_ID), {
+      db,
+      authFn: async () => ({ id: USER_ID }),
+      params: Promise.resolve({ cardId: CARD_ID }),
+    })
+
+    expect(response.status).toBe(404)
   })
 })

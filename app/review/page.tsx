@@ -6,7 +6,7 @@ import { Nav, Tag, Button } from '@/components/ui'
 import { ReviewBoard, type Outcome } from '@/components/ReviewBoard'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ReviewCrashed } from '@/components/ReviewCrashed'
-import { useReviewSession } from '@/hooks/dashboard'
+import { useReviewSession, useReviewCard } from '@/hooks/dashboard'
 import type { SessionCard } from '@/lib/review-session-manager'
 
 type Phase = 'board' | 'rating' | 'done'
@@ -214,11 +214,17 @@ function SessionSummary({ correct, total, go }: { correct: number; total: number
 function ReviewContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const cardId = searchParams.get('cardId')
   const mode = searchParams.get('mode') ?? 'standard'
+  const isSingleCard = cardId !== null
 
-  const session = useReviewSession(mode)
-  const loading = session.loading
-  const queue: SessionCard[] = session.data?.cards ?? []
+  const session = useReviewSession(isSingleCard ? null : mode)
+  const singleCard = useReviewCard(isSingleCard ? cardId : null)
+
+  const loading = isSingleCard ? singleCard.loading : session.loading
+  const queue: SessionCard[] = isSingleCard
+    ? (singleCard.data ? [singleCard.data] : [])
+    : (session.data?.cards ?? [])
 
   const [index, setIndex] = useState(0)
   const [phase, setPhase] = useState<Phase>('board')
@@ -227,6 +233,7 @@ function ReviewContent() {
   const [correctCount, setCorrectCount] = useState(0)
 
   if (session.error) throw session.error
+  if (singleCard.error) throw singleCard.error
 
   // Reset per-card state when index changes
   useEffect(() => {

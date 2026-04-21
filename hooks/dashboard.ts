@@ -1,8 +1,9 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useFetchJson, type FetchResult } from './use-fetch-json'
-import type { ReviewSession } from '@/lib/review-session-manager'
-import type { SyncLog } from '@/types/database'
+import type { ReviewSession, SessionCard } from '@/lib/review-session-manager'
+import type { CardClassification, SyncLog } from '@/types/database'
 
 export interface ModeCounts {
   standard: number
@@ -207,8 +208,114 @@ export function useCounts(): FetchResult<ModeCounts> {
   return useFetchJson('/api/review/counts', validateCounts)
 }
 
-export function useReviewSession(mode: string): FetchResult<ReviewSession> {
-  return useFetchJson(`/api/review/session?mode=${mode}`, validateSession)
+export function useReviewSession(mode: string | null): FetchResult<ReviewSession> {
+  const [data, setData] = useState<ReviewSession | null>(null)
+  const [loading, setLoading] = useState(mode !== null)
+  const [error, setError] = useState<Error | null>(null)
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    if (mode === null) {
+      setData(null)
+      setLoading(false)
+      setError(null)
+      return
+    }
+
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+
+    fetch(`/api/review/session?mode=${mode}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`Request failed (${r.status})`)
+        return r.json()
+      })
+      .then((raw) => {
+        if (cancelled) return
+        const parsed = validateSession(raw)
+        if (parsed === null) throw new Error('Unexpected response shape')
+        setData(parsed)
+        setLoading(false)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(err instanceof Error ? err : new Error(String(err)))
+        setLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [mode, tick])
+
+  return { data, loading, error, refetch: () => setTick((t) => t + 1) }
+}
+
+const VALID_CLASSIFICATIONS = new Set<CardClassification>([
+  'blunder', 'mistake', 'great', 'brilliant',
+])
+
+function validateSessionCard(raw: unknown): SessionCard | null {
+  if (!isObj(raw)) return null
+  const { cardId, fen, correctMove, classification, isNew, theme, note, cpl } = raw
+  if (typeof cardId !== 'string') return null
+  if (typeof fen !== 'string') return null
+  if (typeof correctMove !== 'string') return null
+  if (typeof classification !== 'string'
+    || !VALID_CLASSIFICATIONS.has(classification as CardClassification)) return null
+  if (typeof isNew !== 'boolean') return null
+  if (theme !== null && typeof theme !== 'string') return null
+  if (note !== null && typeof note !== 'string') return null
+  if (cpl !== null && typeof cpl !== 'number') return null
+  return {
+    cardId, fen, correctMove,
+    classification: classification as CardClassification,
+    isNew,
+    theme: theme as string | null,
+    note: note as string | null,
+    cpl: cpl as number | null,
+  }
+}
+
+export function useReviewCard(cardId: string | null): FetchResult<SessionCard> {
+  const [data, setData] = useState<SessionCard | null>(null)
+  const [loading, setLoading] = useState(cardId !== null)
+  const [error, setError] = useState<Error | null>(null)
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    if (cardId === null) {
+      setData(null)
+      setLoading(false)
+      setError(null)
+      return
+    }
+
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+
+    fetch(`/api/review/cards/${cardId}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`Request failed (${r.status})`)
+        return r.json()
+      })
+      .then((raw) => {
+        if (cancelled) return
+        const parsed = validateSessionCard(raw)
+        if (parsed === null) throw new Error('Unexpected response shape')
+        setData(parsed)
+        setLoading(false)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(err instanceof Error ? err : new Error(String(err)))
+        setLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [cardId, tick])
+
+  return { data, loading, error, refetch: () => setTick((t) => t + 1) }
 }
 
 export function useStreak(): FetchResult<{ streak: number }> {

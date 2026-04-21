@@ -65,13 +65,16 @@ jest.mock('@/components/ReviewBoard', () => ({
 
 // ── Mock fetch ────────────────────────────────────────────────────────────────
 
-function mockFetch(sessionCards: typeof CARD_A[]) {
+function mockFetch(sessionCards: typeof CARD_A[], singleCard?: typeof CARD_A) {
   const mock = jest.fn().mockImplementation((url: string, init?: RequestInit) => {
     if (typeof url === 'string' && url.startsWith('/api/review/session')) {
       return Promise.resolve({
         ok: true,
         json: async () => makeSession(sessionCards),
       })
+    }
+    if (typeof url === 'string' && url.startsWith('/api/review/cards/') && (!init || init.method === 'GET' || init.method === undefined) && singleCard) {
+      return Promise.resolve({ ok: true, json: async () => singleCard })
     }
     if (typeof url === 'string' && url.startsWith('/api/review/cards/') && init?.method === 'PATCH') {
       return Promise.resolve({ ok: true, json: async () => ({ success: true }) })
@@ -190,5 +193,37 @@ describe('Review Session Page', () => {
       ([url]: [string]) => url.includes('/api/review/session'),
     )
     expect(sessionCall[0]).toBe('/api/review/session?mode=mistakes')
+  })
+
+  // -------------------------------------------------------------------------
+  // Issue #49: review page opens a single card via ?cardId=
+  // -------------------------------------------------------------------------
+  it('fetches the single card and renders its FEN when ?cardId is present', async () => {
+    mockSearchParams = new URLSearchParams(`cardId=${CARD_A.cardId}`)
+    const fetchMock = mockFetch([], { ...CARD_A, theme: null, note: null, cpl: null })
+
+    render(<ReviewPage />)
+    await waitFor(() => screen.getByTestId('review-board'))
+
+    expect(capturedFen).toBe(CARD_A.fen)
+
+    const urls = (fetchMock as jest.Mock).mock.calls.map(([url]: [string]) => url)
+    expect(urls).toContain(`/api/review/cards/${CARD_A.cardId}`)
+    expect(urls.some((u: string) => u.startsWith('/api/review/session'))).toBe(false)
+  })
+
+  it('shows the completion state after the single card is resolved (no auto-advance)', async () => {
+    mockSearchParams = new URLSearchParams(`cardId=${CARD_A.cardId}`)
+    mockFetch([], { ...CARD_A, theme: null, note: null, cpl: null })
+
+    render(<ReviewPage />)
+    await waitFor(() => screen.getByTestId('review-board'))
+
+    await submitCorrect()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('completion')).toBeInTheDocument()
+      expect(screen.queryByTestId('review-board')).not.toBeInTheDocument()
+    })
   })
 })
