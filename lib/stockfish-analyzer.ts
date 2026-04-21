@@ -48,6 +48,26 @@ function parsePv(line: string): string[] {
 // to time out before writing a single analyze row (see issue #67).
 const DEFAULT_MOVETIME_MS = 500
 
+export interface AnalyzeOptions {
+  /** Hard cap on engine-factory resolution. Default 30s. */
+  engineInitTimeoutMs?: number
+  /** Hard cap on a single position evaluation. Default 3s. */
+  evalTimeoutMs?: number
+}
+
+const DEFAULT_ENGINE_INIT_TIMEOUT_MS = 30_000
+const DEFAULT_EVAL_TIMEOUT_MS = 3_000
+
+function withTimeout<T>(label: string, ms: number, p: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`${label} exceeded ${ms}ms`)), ms)
+    p.then(
+      (v) => { clearTimeout(t); resolve(v) },
+      (e) => { clearTimeout(t); reject(e) },
+    )
+  })
+}
+
 async function evaluateFen(engine: UciEngine, fen: string): Promise<EvalResult> {
   return new Promise((resolve) => {
     let lastScore = 0
@@ -96,6 +116,7 @@ function uciToSan(fen: string, uciMove: string): string | null {
 export async function analyzeGame(
   positions: GamePosition[],
   engineFactory: () => UciEngine | Promise<UciEngine> = createDefaultEngine,
+  options: AnalyzeOptions = {},
 ): Promise<PositionAnalysis[]> {
   if (typeof window !== 'undefined') {
     throw new Error('Stockfish analyzer must only run server-side')
@@ -103,20 +124,27 @@ export async function analyzeGame(
 
   if (positions.length === 0) return []
 
-  const engine = await engineFactory()
+  const engineInitTimeoutMs = options.engineInitTimeoutMs ?? DEFAULT_ENGINE_INIT_TIMEOUT_MS
+  const evalTimeoutMs = options.evalTimeoutMs ?? DEFAULT_EVAL_TIMEOUT_MS
+
+  const engine = await withTimeout(
+    'engine-init',
+    engineInitTimeoutMs,
+    Promise.resolve(engineFactory()),
+  )
   const results: PositionAnalysis[] = []
 
   for (let i = 0; i < positions.length; i++) {
     const { fen, movePlayed } = positions[i]
 
-    const before = await evaluateFen(engine, fen)
+    const before = await withTimeout(`eval[${i}:before]`, evalTimeoutMs, evaluateFen(engine, fen))
 
     const nextFen =
       i + 1 < positions.length
         ? positions[i + 1].fen
         : fenAfterMove(fen, movePlayed)
 
-    const after = await evaluateFen(engine, nextFen)
+    const after = await withTimeout(`eval[${i}:after]`, evalTimeoutMs, evaluateFen(engine, nextFen))
     const cpl = Math.max(0, before.score + after.score)
     const moveCount = legalMoveCount(fen)
     const bestMoveSan = uciToSan(fen, before.bestMove) ?? before.bestMove
