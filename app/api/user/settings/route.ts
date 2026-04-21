@@ -7,11 +7,16 @@ interface SettingsDeps {
   authFn?: () => Promise<{ id: string } | null>
 }
 
+type NextRouteContext = { params: Promise<Record<string, string | string[] | undefined>> }
+
 const MIN_DAILY_NEW = 4
 const MAX_DAILY_NEW = 30
 
-export async function PATCH(req: Request, deps: SettingsDeps = {}) {
-  const authFn = deps.authFn ?? getSessionUser
+export async function PATCH(req: Request, deps: SettingsDeps): Promise<NextResponse>
+export async function PATCH(req: Request, ctx: NextRouteContext): Promise<NextResponse>
+export async function PATCH(req: Request, deps: SettingsDeps | NextRouteContext): Promise<NextResponse> {
+  const actualDeps: SettingsDeps = (deps ?? {}) as SettingsDeps
+  const authFn = actualDeps.authFn ?? getSessionUser
   const user = await authFn()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -32,7 +37,7 @@ export async function PATCH(req: Request, deps: SettingsDeps = {}) {
     )
   }
 
-  const db = deps.db ?? (await createClient())
+  const db = actualDeps.db ?? (await createClient())
   const { error } = await db
     .from('users')
     .update({ daily_new_limit: raw })

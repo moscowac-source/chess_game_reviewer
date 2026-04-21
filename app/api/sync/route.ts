@@ -18,6 +18,8 @@ interface SyncDeps {
   authFn?: () => Promise<AuthUser | null>
 }
 
+type NextRouteContext = { params: Promise<Record<string, string | string[] | undefined>> }
+
 function makeSupabaseSyncLogger(db: SupabaseClient, mode: 'historical' | 'incremental', userId: string): SyncLogger {
   return {
     async logStart() {
@@ -42,13 +44,16 @@ function makeSupabaseSyncLogger(db: SupabaseClient, mode: 'historical' | 'increm
   }
 }
 
-export async function POST(req: Request, deps: SyncDeps = {}) {
+export async function POST(req: Request, deps: SyncDeps): Promise<NextResponse>
+export async function POST(req: Request, ctx: NextRouteContext): Promise<NextResponse>
+export async function POST(req: Request, deps: SyncDeps | NextRouteContext): Promise<NextResponse> {
+  const actualDeps: SyncDeps = (deps ?? {}) as SyncDeps
   const body = await req.json().catch(() => ({}))
   const mode: 'historical' | 'incremental' =
     body.mode === 'historical' ? 'historical' : 'incremental'
 
-  const activeDb = deps.db ?? supabase
-  const authFn = deps.authFn ?? (() => getSessionUserWithUsername(activeDb))
+  const activeDb = actualDeps.db ?? supabase
+  const authFn = actualDeps.authFn ?? (() => getSessionUserWithUsername(activeDb))
   const user = await authFn()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -65,9 +70,9 @@ export async function POST(req: Request, deps: SyncDeps = {}) {
     username: user.chess_com_username,
     userId: user.id,
     db: activeDb,
-    gamesFetcher: deps.gamesFetcher,
-    engineFactory: deps.engineFactory,
-    syncLogger: deps.syncLogger ?? makeSupabaseSyncLogger(activeDb, mode, user.id),
+    gamesFetcher: actualDeps.gamesFetcher,
+    engineFactory: actualDeps.engineFactory,
+    syncLogger: actualDeps.syncLogger ?? makeSupabaseSyncLogger(activeDb, mode, user.id),
   })
 
   return NextResponse.json(result)

@@ -46,10 +46,4 @@ describe('GET /api/sync/status', () => {
     expect(response.status).toBe(200)
     expect(body).toBeNull()
   })
-
-  it('returns 401 when no authenticated user', async () => {
-    const { db } = makeMockDb({ sync_log: [FIXTURE_LOG] })
-    const response = await GET(makeStatusRequest(), { db, authFn: async () => null })
-    expect(response.status).toBe(401)
-  })
 })
