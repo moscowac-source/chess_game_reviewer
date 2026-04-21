@@ -42,6 +42,12 @@ function parsePv(line: string): string[] {
   return match[1].trim().split(/\s+/)
 }
 
+// Per-position time cap for Stockfish. A full game (~160 evals) at 500ms is
+// ~80s, well inside our Inngest step budget; `depth 15` was open-ended and
+// routinely exceeded 5 minutes per game on Vercel, causing the sync pipeline
+// to time out before writing a single analyze row (see issue #67).
+const DEFAULT_MOVETIME_MS = 500
+
 async function evaluateFen(engine: UciEngine, fen: string): Promise<EvalResult> {
   return new Promise((resolve) => {
     let lastScore = 0
@@ -60,7 +66,7 @@ async function evaluateFen(engine: UciEngine, fen: string): Promise<EvalResult> 
       }
     }
     engine.postMessage(`position fen ${fen}`)
-    engine.postMessage('go depth 15')
+    engine.postMessage(`go movetime ${DEFAULT_MOVETIME_MS}`)
   })
 }
 
