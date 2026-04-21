@@ -42,7 +42,7 @@ describe('makeMockDb — read path', () => {
     })
     const { data } = await db.from('cards').select('*').in('id', ['c1', 'c3'])
     expect(data).toHaveLength(2)
-    expect(data.map((r) => r.id)).toEqual(['c1', 'c3'])
+    expect(data!.map((r) => r.id)).toEqual(['c1', 'c3'])
   })
 
   it('filters with .gte on ISO timestamps', async () => {
@@ -80,9 +80,9 @@ describe('makeMockDb — read path', () => {
       ],
     })
     const asc = await db.from('games').select('*').order('played_at', { ascending: true })
-    expect(asc.data.map((r) => r.id)).toEqual(['g1', 'g3', 'g2'])
+    expect(asc.data!.map((r) => r.id)).toEqual(['g1', 'g3', 'g2'])
     const desc = await db.from('games').select('*').order('played_at', { ascending: false })
-    expect(desc.data.map((r) => r.id)).toEqual(['g2', 'g3', 'g1'])
+    expect(desc.data!.map((r) => r.id)).toEqual(['g2', 'g3', 'g1'])
   })
 
   it('limits rows', async () => {
