@@ -402,6 +402,76 @@ describe('runSync', () => {
       expect(fetcher).toHaveBeenCalledTimes(1)
     })
 
+    it('wraps each game in its own process-game-${i} step when a step runner is supplied', async () => {
+      const { db } = makeMockDb()
+      const { step, calls } = makeStepSpy()
+
+      mockedParse.mockReturnValue([{ fen: 'FEN', movePlayed: 'e4' }])
+      mockedGenerate.mockResolvedValue({ created: 1, skipped: 0 })
+
+      await runSync('historical', {
+        username: 'player',
+        userId: USER_ID,
+        db,
+        gamesFetcher: async () => ['<pgn-1>', '<pgn-2>', '<pgn-3>'],
+        step,
+      })
+
+      const gameStepIds = calls.filter((c) => c.id.startsWith('process-game-')).map((c) => c.id)
+      expect(gameStepIds).toEqual(['process-game-0', 'process-game-1', 'process-game-2'])
+    })
+
+    it('skips re-executing per-game work when a process-game step result is already memoized', async () => {
+      const { db } = makeMockDb()
+      const { step, cache } = makeStepSpy()
+      cache.set('fetch-archives', ['<pgn-0>', '<pgn-1>'])
+      cache.set('process-game-0', { cardsCreated: 7 })
+
+      mockedParse.mockReturnValue([{ fen: 'FEN', movePlayed: 'e4' }])
+      mockedGenerate.mockResolvedValue({ created: 3, skipped: 0 })
+
+      const result = await runSync('historical', {
+        username: 'player',
+        userId: USER_ID,
+        db,
+        gamesFetcher: async () => ['ignored'],
+        step,
+      })
+
+      // game 0 hit cache → parser/generator only ran for game 1
+      expect(mockedParse).toHaveBeenCalledTimes(1)
+      expect(mockedGenerate).toHaveBeenCalledTimes(1)
+      // cardsCreated = 7 (cached) + 3 (fresh)
+      expect(result.cardsCreated).toBe(10)
+      expect(result.gamesProcessed).toBe(2)
+    })
+
+    it('captures per-game errors inside the step without propagating to the step runner', async () => {
+      const { db } = makeMockDb()
+      const { step, calls } = makeStepSpy()
+
+      let parseCall = 0
+      mockedParse.mockImplementation(() => {
+        parseCall++
+        if (parseCall === 1) throw new Error('bad pgn')
+        return [{ fen: 'FEN', movePlayed: 'e4' }]
+      })
+      mockedGenerate.mockResolvedValue({ created: 2, skipped: 0 })
+
+      const result = await runSync('historical', {
+        username: 'player',
+        userId: USER_ID,
+        db,
+        gamesFetcher: async () => ['<bad>', '<good>'],
+        step,
+      })
+
+      // both game steps were attempted (neither propagated out of step.run)
+      expect(calls.filter((c) => c.id === 'process-game-0')).toHaveLength(1)
+      expect(calls.filter((c) => c.id === 'process-game-1')).toHaveLength(1)
+      expect(result).toEqual({ gamesProcessed: 1, cardsCreated: 2, errors: ['bad pgn'] })
+    })
+
     it('returns memoized fetch-archives output on replay without re-invoking the fetcher', async () => {
       const { db } = makeMockDb()
       const { step, cache } = makeStepSpy()

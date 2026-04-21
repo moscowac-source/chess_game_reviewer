@@ -270,48 +270,63 @@ export async function runSync(
 
   for (let gameIndex = 0; gameIndex < pgns.length; gameIndex++) {
     const pgn = pgns[gameIndex]
-    let gameUrl: string | null = null
-    try {
-      const headers = await runStep(
-        stepLogger,
-        { step: 'parse-headers', gameIndex },
-        () => parsePgnHeaders(pgn),
-      )
-      gameUrl = headers.url ?? null
 
-      const positions = await runStep(
-        stepLogger,
-        { step: 'parse-positions', gameUrl, gameIndex },
-        () => parseGame(pgn),
-      )
+    // Each game's work is a single Inngest step so retries resume at the
+    // failed game instead of re-running earlier games, and so each game
+    // gets its own fresh Vercel invocation budget.
+    const gameResult = await runInStep(`process-game-${gameIndex}`, async () => {
+      let gameUrl: string | null = null
+      try {
+        const headers = await runStep(
+          stepLogger,
+          { step: 'parse-headers', gameIndex },
+          () => parsePgnHeaders(pgn),
+        )
+        gameUrl = headers.url ?? null
 
-      const gameId = await runStep(
-        stepLogger,
-        { step: 'ensure-game-row', gameUrl, gameIndex },
-        () => ensureGameRow(db, userId, pgn, headers),
-      )
+        const positions = await runStep(
+          stepLogger,
+          { step: 'parse-positions', gameUrl, gameIndex },
+          () => parseGame(pgn),
+        )
 
-      const analyses = await runStep(
-        stepLogger,
-        {
-          step: 'analyze',
-          gameUrl,
-          gameIndex,
-          detailsOnOk: { positions: positions.length },
-        },
-        () => analyzeGame(positions, engineFactory),
-      )
+        const gameId = await runStep(
+          stepLogger,
+          { step: 'ensure-game-row', gameUrl, gameIndex },
+          () => ensureGameRow(db, userId, pgn, headers),
+        )
 
-      const result = await runStep(
-        stepLogger,
-        { step: 'generate-cards', gameUrl, gameIndex },
-        () => generateCards(analyses, db, gameId),
-      )
+        const analyses = await runStep(
+          stepLogger,
+          {
+            step: 'analyze',
+            gameUrl,
+            gameIndex,
+            detailsOnOk: { positions: positions.length },
+          },
+          () => analyzeGame(positions, engineFactory),
+        )
 
+        const result = await runStep(
+          stepLogger,
+          { step: 'generate-cards', gameUrl, gameIndex },
+          () => generateCards(analyses, db, gameId),
+        )
+
+        return { cardsCreated: result.created }
+      } catch (err) {
+        // Swallow per-game errors inside the step so one bad game doesn't
+        // bubble up and fail the whole Inngest function. Callers aggregate
+        // these into `errors` below.
+        return { error: formatError(err) }
+      }
+    }) as { cardsCreated?: number; error?: string }
+
+    if (gameResult.error !== undefined) {
+      errors.push(gameResult.error)
+    } else {
       gamesProcessed++
-      cardsCreated += result.created
-    } catch (err) {
-      errors.push(formatError(err))
+      cardsCreated += gameResult.cardsCreated ?? 0
     }
 
     await onProgress?.({
