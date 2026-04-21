@@ -4,7 +4,21 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Nav, Page, Button, Stat } from '@/components/ui'
 import { useSyncStatus, useSyncHistory } from '@/hooks/dashboard'
+import { pollSyncUntilTerminal } from '@/lib/poll-sync-progress'
+import { syncRunStatusLabel, type StatusTone } from '@/lib/sync-run-status'
 import type { SyncLog } from '@/types/database'
+
+const TONE_DOT: Record<StatusTone, string> = {
+  success: 'var(--good)',
+  error: 'var(--amber)',
+  warn: 'var(--amber)',
+}
+
+const TONE_TEXT: Record<StatusTone, string> = {
+  success: 'var(--muted)',
+  error: 'var(--ink-2)',
+  warn: 'var(--ink-2)',
+}
 
 export default function SyncPage() {
   const statusFetch = useSyncStatus()
@@ -41,25 +55,17 @@ export default function SyncPage() {
     }
     const { sync_id } = await res.json()
 
-    // Poll progress until terminal
-    let terminal: 'complete' | 'error' | null = null
-    while (terminal === null) {
-      await new Promise((r) => setTimeout(r, 1000))
-      try {
-        const pr = await fetch(`/api/sync/progress?id=${encodeURIComponent(sync_id)}`)
-        if (!pr.ok) continue
-        const data = await pr.json()
-        setProgressStage(data.stage ?? 'queued')
-        setProgressDone(data.games_done ?? 0)
-        setProgressTotal(data.games_total ?? 0)
-        if (data.stage === 'complete') terminal = 'complete'
-        else if (data.stage === 'error') {
-          terminal = 'error'
-          setSyncError(data.error ?? 'Sync failed')
-        }
-      } catch {
-        // keep polling
-      }
+    const result = await pollSyncUntilTerminal(sync_id, {
+      onProgress: (snap) => {
+        setProgressStage(snap.stage ?? 'queued')
+        setProgressDone(snap.games_done ?? 0)
+        setProgressTotal(snap.games_total ?? 0)
+      },
+    })
+    if (result.outcome === 'error') {
+      setSyncError(result.error ?? 'Sync failed')
+    } else if (result.outcome === 'timeout') {
+      setSyncError('Sync is taking longer than expected — check back on this page in a minute.')
     }
 
     statusFetch.refetch()
@@ -172,34 +178,37 @@ export default function SyncPage() {
               </div>
             )}
 
-            {history.map((log, i) => (
-              <Link key={log.id} href={`/sync/${log.id}`} style={{
-                display: 'grid', gridTemplateColumns: '200px 120px 1fr 100px 100px', gap: 20,
-                padding: '14px 20px', alignItems: 'center',
-                borderBottom: i < history.length - 1 ? '1px solid var(--line)' : 'none',
-                background: 'var(--bg)', color: 'inherit', textDecoration: 'none',
-              }}>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <div style={{
-                    width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                    background: log.error ? 'var(--amber)' : 'var(--good)',
-                  }} />
-                  <span className="mono" style={{ fontSize: 12 }}>
-                    {new Date(log.started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    {' · '}
-                    {new Date(log.started_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+            {history.map((log, i) => {
+              const status = syncRunStatusLabel(log)
+              return (
+                <Link key={log.id} href={`/sync/${log.id}`} style={{
+                  display: 'grid', gridTemplateColumns: '200px 120px 1fr 100px 100px', gap: 20,
+                  padding: '14px 20px', alignItems: 'center',
+                  borderBottom: i < history.length - 1 ? '1px solid var(--line)' : 'none',
+                  background: 'var(--bg)', color: 'inherit', textDecoration: 'none',
+                }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <div style={{
+                      width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                      background: TONE_DOT[status.tone],
+                    }} />
+                    <span className="mono" style={{ fontSize: 12 }}>
+                      {new Date(log.started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {' · '}
+                      {new Date(log.started_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <span className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+                    {log.mode}
                   </span>
-                </div>
-                <span className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)' }}>
-                  {log.mode}
-                </span>
-                <span style={{ fontSize: 13, color: log.error ? 'var(--ink-2)' : 'var(--muted)' }}>
-                  {log.error ?? 'All stages green'}
-                </span>
-                <span className="serif" style={{ fontSize: 20, letterSpacing: '-0.02em' }}>{log.games_processed}</span>
-                <span className="serif" style={{ fontSize: 20, letterSpacing: '-0.02em' }}>{log.cards_created}</span>
-              </Link>
-            ))}
+                  <span style={{ fontSize: 13, color: TONE_TEXT[status.tone] }}>
+                    {status.label}
+                  </span>
+                  <span className="serif" style={{ fontSize: 20, letterSpacing: '-0.02em' }}>{log.games_processed}</span>
+                  <span className="serif" style={{ fontSize: 20, letterSpacing: '-0.02em' }}>{log.cards_created}</span>
+                </Link>
+              )
+            })}
           </div>
         </div>
       </Page>

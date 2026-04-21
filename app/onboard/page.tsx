@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Logo, Button, Field, Input } from '@/components/ui'
 import { createClient } from '@/lib/supabase-browser'
+import { pollSyncUntilTerminal } from '@/lib/poll-sync-progress'
 
 const STAGE_LABEL: Record<string, string> = {
   queued:    'Queued — worker picking up the job',
@@ -271,32 +272,20 @@ function ImportStep({ username, onDone }: { username: string; onDone: () => void
       return
     }
 
-    let terminalStage: 'complete' | 'error' | null = null
-    let terminalError: string | null = null
+    const result = await pollSyncUntilTerminal(syncId, {
+      onProgress: (snap) => {
+        setStage(snap.stage ?? 'queued')
+        setGamesDone(snap.games_done ?? 0)
+        setGamesTotal(snap.games_total ?? 0)
+        setCardsCreated(snap.cards_created ?? 0)
+      },
+    })
 
-    // Poll once a second until terminal state
-    while (terminalStage === null) {
-      await new Promise((r) => setTimeout(r, 1000))
-      try {
-        const res = await fetch(`/api/sync/progress?id=${encodeURIComponent(syncId)}`)
-        if (!res.ok) continue
-        const data = await res.json()
-        setStage(data.stage ?? 'queued')
-        setGamesDone(data.games_done ?? 0)
-        setGamesTotal(data.games_total ?? 0)
-        setCardsCreated(data.cards_created ?? 0)
-        if (data.stage === 'complete') terminalStage = 'complete'
-        else if (data.stage === 'error') {
-          terminalStage = 'error'
-          terminalError = data.error ?? 'Sync failed'
-        }
-      } catch {
-        // Transient network error — keep polling
-      }
-    }
-
-    if (terminalStage === 'error') {
-      setError(terminalError ?? 'Sync failed')
+    if (result.outcome === 'error') {
+      setError(result.error ?? 'Sync failed')
+      setRunning(false)
+    } else if (result.outcome === 'timeout') {
+      setError('Sync is taking longer than expected. You can continue — it will finish in the background.')
       setRunning(false)
     } else {
       setTimeout(onDone, 800)

@@ -3,6 +3,7 @@ import { inngest } from './client'
 import { runSync, type SyncProgress } from '@/lib/sync-orchestrator'
 import { createServiceClient } from '@/lib/supabase-service'
 import { makeSupabaseStepLogger } from '@/lib/sync-step-logger'
+import { markSyncFailed } from './terminal-state'
 
 export interface SyncGamesDeps {
   db?: SupabaseClient
@@ -19,6 +20,17 @@ export const syncGamesFunction = inngest.createFunction(
     id: 'sync-games',
     name: 'Sync Chess.com games',
     triggers: [{ event: 'sync/run' }],
+    // Runs after all retries are exhausted. Without this, a function that
+    // times out or crashes mid-run leaves sync_log.stage stuck on whatever
+    // the last onProgress write was (usually 'analyzing'), and the client
+    // polls forever because it's waiting for a terminal stage.
+    onFailure: async ({ event, error }) => {
+      const { syncLogId } = (event.data.event?.data ?? {}) as { syncLogId?: string }
+      if (!syncLogId) return
+      const db = createServiceClient()
+      const message = error instanceof Error ? error.message : String(error)
+      await markSyncFailed(db, syncLogId, message)
+    },
   },
   async ({ event, step }) => {
     const { syncLogId, userId, username, mode } = event.data as {
@@ -72,14 +84,7 @@ export const syncGamesFunction = inngest.createFunction(
       return result
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      await db
-        .from('sync_log')
-        .update({
-          stage: 'error',
-          completed_at: new Date().toISOString(),
-          error: message,
-        })
-        .eq('id', syncLogId)
+      await markSyncFailed(db, syncLogId, message)
       throw err
     }
   },
