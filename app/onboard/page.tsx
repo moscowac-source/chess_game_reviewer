@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Logo, Button, Field, Input } from '@/components/ui'
 import { createClient } from '@/lib/supabase-browser'
+import { useChessComVerify } from '@/hooks/use-chess-com-verify'
 
 const STAGE_LABEL: Record<string, string> = {
   queued:    'Queued — worker picking up the job',
@@ -94,9 +95,7 @@ function NameStep({ onDone }: { onDone: () => void }) {
 
 function LinkStep({ onNext }: { onNext: (username: string) => void }) {
   const [username, setUsername] = useState('')
-  const [verifying, setVerifying] = useState(false)
-  const [verified, setVerified] = useState(false)
-  const [verifyError, setVerifyError] = useState<string | null>(null)
+  const { verify: runVerify, verifying, verified, error: verifyError, reset } = useChessComVerify()
 
   // Pre-fill from DB if already set
   useEffect(() => {
@@ -113,26 +112,13 @@ function LinkStep({ onNext }: { onNext: (username: string) => void }) {
   }, [])
 
   async function verify() {
-    if (!username.trim()) return
-    setVerifying(true)
-    setVerifyError(null)
-    try {
-      const res = await fetch(`https://api.chess.com/pub/player/${username.trim().toLowerCase()}`)
-      if (res.ok) {
-        // Save to DB
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          await supabase.from('users').upsert({ id: user.id, chess_com_username: username.trim() })
-        }
-        setVerified(true)
-      } else {
-        setVerifyError('Username not found on Chess.com. Check the spelling and try again.')
-      }
-    } catch {
-      setVerifyError('Could not reach Chess.com. Check your connection.')
+    const result = await runVerify(username)
+    if (!result.ok || !result.handle) return
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('users').upsert({ id: user.id, chess_com_username: result.handle })
     }
-    setVerifying(false)
   }
 
   return (
@@ -151,7 +137,7 @@ function LinkStep({ onNext }: { onNext: (username: string) => void }) {
             <div style={{ display: 'flex', gap: 8 }}>
               <Input
                 value={username}
-                onChange={(e) => { setUsername(e.target.value); setVerified(false) }}
+                onChange={(e) => { setUsername(e.target.value); reset() }}
                 style={{ flex: 1 }}
                 placeholder="your_handle"
               />

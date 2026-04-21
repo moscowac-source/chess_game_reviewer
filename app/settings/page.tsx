@@ -3,12 +3,15 @@
 import { useEffect, useState } from 'react'
 import { Nav, Page, Button, Field, Input } from '@/components/ui'
 import { useUserSettings } from '@/hooks/dashboard'
+import { useChessComVerify } from '@/hooks/use-chess-com-verify'
 
 export default function SettingsPage() {
   const settings = useUserSettings()
   const [newPerDay, setNewPerDay] = useState<number | null>(null)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
+  const [chessComUsername, setChessComUsername] = useState('')
+  const [initialChessComUsername, setInitialChessComUsername] = useState('')
   const [loaded, setLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savingName, setSavingName] = useState(false)
@@ -22,6 +25,8 @@ export default function SettingsPage() {
       setNewPerDay(settings.data.daily_new_limit)
       setFirstName(settings.data.first_name ?? '')
       setLastName(settings.data.last_name ?? '')
+      setChessComUsername(settings.data.chess_com_username ?? '')
+      setInitialChessComUsername(settings.data.chess_com_username ?? '')
       setLoaded(true)
     }
   }, [settings.data, loaded])
@@ -116,6 +121,21 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            <div style={{ marginTop: 48, padding: '32px 36px', border: '1px solid var(--line)', background: 'var(--bg-2)', maxWidth: 720 }}>
+              <div className="mono" style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 18 }}>
+                Connected accounts
+              </div>
+
+              <ChessComProviderRow
+                initialUsername={initialChessComUsername}
+                username={chessComUsername}
+                setUsername={setChessComUsername}
+                onSaved={(saved) => setInitialChessComUsername(saved)}
+              />
+
+              <LichessProviderRow />
+            </div>
+
             {newPerDay !== null && (
               <div style={{ marginTop: 48, padding: '32px 36px', border: '1px solid var(--line)', background: 'var(--bg-2)', maxWidth: 720 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -156,5 +176,133 @@ export default function SettingsPage() {
         )}
       </Page>
     </>
+  )
+}
+
+function ProviderRow({
+  label,
+  children,
+  disabled,
+}: {
+  label: string
+  children: React.ReactNode
+  disabled?: boolean
+}) {
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: '160px 1fr', gap: 24,
+      padding: '20px 0', borderTop: '1px solid var(--line)',
+      opacity: disabled ? 0.5 : 1,
+    }}>
+      <div className="mono" style={{
+        color: 'var(--ink)', fontSize: 12, letterSpacing: '0.06em',
+        textTransform: 'uppercase', alignSelf: 'center',
+      }}>
+        {label}
+      </div>
+      <div>{children}</div>
+    </div>
+  )
+}
+
+interface ChessComProviderRowProps {
+  initialUsername: string
+  username: string
+  setUsername: (v: string) => void
+  onSaved: (saved: string) => void
+}
+
+function ChessComProviderRow({ initialUsername, username, setUsername, onSaved }: ChessComProviderRowProps) {
+  const { verify, verifying, verified, error: verifyError, reset } = useChessComVerify()
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const trimmed = username.trim()
+  const dirty = trimmed !== initialUsername.trim()
+  const canSave = verified && dirty && !saving
+
+  async function handleVerify() {
+    setSaved(false)
+    setSaveError(null)
+    await verify(username)
+  }
+
+  async function handleSave() {
+    if (!canSave) return
+    setSaving(true)
+    setSaveError(null)
+    setSaved(false)
+    try {
+      const res = await fetch('/api/user/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chess_com_username: trimmed }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setSaveError(body.error ?? `Save failed (${res.status})`)
+      } else {
+        setSaved(true)
+        onSaved(trimmed)
+      }
+    } catch {
+      setSaveError('Network error — please try again.')
+    }
+    setSaving(false)
+  }
+
+  return (
+    <ProviderRow label="Chess.com">
+      <Field label="Username" hint="Case-insensitive. Verify it exists on Chess.com before saving.">
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Input
+            value={username}
+            onChange={(e) => {
+              setUsername(e.target.value)
+              reset()
+              setSaved(false)
+              setSaveError(null)
+            }}
+            style={{ flex: 1 }}
+            placeholder="your_handle"
+            maxLength={50}
+          />
+          <Button variant="secondary" onClick={handleVerify} disabled={verifying || verified || !trimmed}>
+            {verifying ? 'Checking…' : verified ? '✓ Verified' : 'Verify'}
+          </Button>
+          <Button onClick={handleSave} disabled={!canSave}>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+      </Field>
+      <div style={{ marginTop: 4, minHeight: 16, display: 'flex', gap: 14, alignItems: 'center' }}>
+        {verifyError && (
+          <span className="mono" style={{ color: 'var(--bad)', fontSize: 11 }}>{verifyError}</span>
+        )}
+        {saveError && (
+          <span className="mono" style={{ color: 'var(--bad)', fontSize: 11 }}>{saveError}</span>
+        )}
+        {saved && (
+          <span className="mono" style={{ color: 'var(--good)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+            ✓ Saved
+          </span>
+        )}
+      </div>
+    </ProviderRow>
+  )
+}
+
+function LichessProviderRow() {
+  return (
+    <ProviderRow label="Lichess" disabled>
+      <Field label="Username" hint="Coming soon.">
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Input value="" disabled placeholder="Not yet supported" style={{ flex: 1 }} />
+          <Button variant="secondary" disabled>Verify</Button>
+          <Button disabled>Save</Button>
+        </div>
+      </Field>
+    </ProviderRow>
   )
 }

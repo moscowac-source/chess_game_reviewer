@@ -14,11 +14,12 @@ type NextRouteContext = { params: Promise<Record<string, string | string[] | und
 const MIN_DAILY_NEW = 4
 const MAX_DAILY_NEW = 30
 const MAX_NAME_LEN = 60
+const MAX_CHESS_HANDLE_LEN = 50
 
 export const GET = withAuthedRoute(async ({ db, user }) => {
   const { data, error } = await db
     .from('users')
-    .select('daily_new_limit, first_name, last_name')
+    .select('daily_new_limit, first_name, last_name, chess_com_username')
     .eq('id', user.id)
     .single()
 
@@ -27,6 +28,7 @@ export const GET = withAuthedRoute(async ({ db, user }) => {
     daily_new_limit: data?.daily_new_limit ?? 10,
     first_name: data?.first_name ?? null,
     last_name: data?.last_name ?? null,
+    chess_com_username: data?.chess_com_username ?? null,
   })
 })
 
@@ -80,6 +82,24 @@ export async function PATCH(req: Request, deps: SettingsDeps | NextRouteContext)
     const r = validateName(raw.last_name)
     if (!r.ok) return NextResponse.json({ error: `last_name must be a string up to ${MAX_NAME_LEN} chars` }, { status: 400 })
     update.last_name = r.value
+  }
+
+  if ('chess_com_username' in raw) {
+    const h = raw.chess_com_username
+    if (typeof h !== 'string') {
+      return NextResponse.json({ error: 'chess_com_username must be a string' }, { status: 400 })
+    }
+    const trimmed = h.trim()
+    if (trimmed.length === 0) {
+      return NextResponse.json({ error: 'chess_com_username cannot be empty' }, { status: 400 })
+    }
+    if (trimmed.length > MAX_CHESS_HANDLE_LEN) {
+      return NextResponse.json(
+        { error: `chess_com_username must be at most ${MAX_CHESS_HANDLE_LEN} chars` },
+        { status: 400 },
+      )
+    }
+    update.chess_com_username = trimmed
   }
 
   if (Object.keys(update).length === 0) {

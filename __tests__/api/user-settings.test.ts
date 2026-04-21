@@ -20,26 +20,42 @@ function makeGetRequest() {
 }
 
 describe('GET /api/user/settings', () => {
-  it("returns the current user's settings including name fields", async () => {
+  it("returns the current user's settings including name and chess.com fields", async () => {
     const { db } = makeMockDb({
-      users: [{ id: USER, daily_new_limit: 15, first_name: 'Ada', last_name: 'Lovelace' }],
+      users: [{
+        id: USER,
+        daily_new_limit: 15,
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        chess_com_username: 'ada_plays',
+      }],
     })
 
     const response = await GET(makeGetRequest(), { db, authFn: async () => ({ id: USER }) })
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body).toEqual({ daily_new_limit: 15, first_name: 'Ada', last_name: 'Lovelace' })
+    expect(body).toEqual({
+      daily_new_limit: 15,
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+      chess_com_username: 'ada_plays',
+    })
   })
 
-  it('defaults daily_new_limit to 10 and names to null when no row exists', async () => {
+  it('defaults daily_new_limit to 10 and other fields to null when no row exists', async () => {
     const { db } = makeMockDb({ users: [] })
 
     const response = await GET(makeGetRequest(), { db, authFn: async () => ({ id: USER }) })
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body).toEqual({ daily_new_limit: 10, first_name: null, last_name: null })
+    expect(body).toEqual({
+      daily_new_limit: 10,
+      first_name: null,
+      last_name: null,
+      chess_com_username: null,
+    })
   })
 })
 
@@ -162,5 +178,83 @@ describe('PATCH /api/user/settings', () => {
         filters: [{ op: 'eq', col: 'id', val: USER }],
       },
     ])
+  })
+
+  describe('chess_com_username', () => {
+    it('updates chess_com_username, trimming whitespace', async () => {
+      const { db, updated } = makeMockDb({ users: [{ id: USER }] })
+
+      const response = await PATCH(makeRequest({ chess_com_username: '  ada_plays  ' }), {
+        db,
+        authFn: async () => ({ id: USER }),
+      })
+
+      expect(response.status).toBe(200)
+      expect(updated.users).toEqual([
+        {
+          values: { chess_com_username: 'ada_plays' },
+          filters: [{ op: 'eq', col: 'id', val: USER }],
+        },
+      ])
+    })
+
+    it('returns 400 when chess_com_username is an empty string', async () => {
+      const { db, updated } = makeMockDb({ users: [{ id: USER }] })
+
+      const response = await PATCH(makeRequest({ chess_com_username: '' }), {
+        db,
+        authFn: async () => ({ id: USER }),
+      })
+
+      expect(response.status).toBe(400)
+      expect(updated.users ?? []).toHaveLength(0)
+    })
+
+    it('returns 400 when chess_com_username is whitespace-only', async () => {
+      const { db, updated } = makeMockDb({ users: [{ id: USER }] })
+
+      const response = await PATCH(makeRequest({ chess_com_username: '   ' }), {
+        db,
+        authFn: async () => ({ id: USER }),
+      })
+
+      expect(response.status).toBe(400)
+      expect(updated.users ?? []).toHaveLength(0)
+    })
+
+    it('returns 400 when chess_com_username is too long', async () => {
+      const { db, updated } = makeMockDb({ users: [{ id: USER }] })
+
+      const response = await PATCH(makeRequest({ chess_com_username: 'a'.repeat(51) }), {
+        db,
+        authFn: async () => ({ id: USER }),
+      })
+
+      expect(response.status).toBe(400)
+      expect(updated.users ?? []).toHaveLength(0)
+    })
+
+    it('returns 400 when chess_com_username is not a string', async () => {
+      const { db, updated } = makeMockDb({ users: [{ id: USER }] })
+
+      const response = await PATCH(makeRequest({ chess_com_username: 123 }), {
+        db,
+        authFn: async () => ({ id: USER }),
+      })
+
+      expect(response.status).toBe(400)
+      expect(updated.users ?? []).toHaveLength(0)
+    })
+
+    it('returns 401 when updating chess_com_username without auth', async () => {
+      const { db } = makeMockDb({ users: [{ id: USER }] })
+
+      const response = await PATCH(makeRequest({ chess_com_username: 'ada_plays' }), {
+        db,
+        authFn: async () => null,
+      })
+
+      expect(response.status).toBe(401)
+    })
   })
 })
