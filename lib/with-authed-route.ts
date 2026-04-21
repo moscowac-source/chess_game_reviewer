@@ -1,7 +1,6 @@
 import type { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import { getSessionUser } from '@/lib/supabase-server'
+import { createClient, getSessionUser } from '@/lib/supabase-server'
 import { apiError } from '@/lib/api-response'
 
 export interface AuthedRouteDeps {
@@ -49,7 +48,7 @@ export function withAuthedRoute<D extends AuthedRouteDeps = AuthedRouteDeps>(
     deps?: D | NextRouteContext,
   ): Promise<Response | NextResponse> => {
     const actualDeps = (deps ?? {}) as D
-    const db = actualDeps.db ?? supabase
+    const db = actualDeps.db ?? (await createClient())
     const authFn = actualDeps.authFn ?? getSessionUser
     try {
       const user = await authFn()
