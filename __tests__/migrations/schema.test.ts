@@ -227,3 +227,28 @@ test('games+cards-link migration adds nullable game_id FK on cards with ON DELET
   expect(sql).toMatch(/ON DELETE SET NULL/i)
   expect(sql).not.toMatch(/"game_id"\s+UUID\s+NOT NULL/i)
 })
+
+// ---------------------------------------------------------------------------
+// Issue #36: sync_log progress columns
+// ---------------------------------------------------------------------------
+
+const SYNC_PROGRESS_MIGRATION_PATH = join(
+  process.cwd(),
+  'supabase/migrations/010_sync_log_progress.sql',
+)
+
+test('sync_log progress migration file exists', () => {
+  expect(existsSync(SYNC_PROGRESS_MIGRATION_PATH)).toBe(true)
+})
+
+test('sync_log progress migration adds nullable stage TEXT column', () => {
+  const sql = readFileSync(SYNC_PROGRESS_MIGRATION_PATH, 'utf8')
+  expect(sql).toMatch(/ALTER TABLE\s+"sync_log"/i)
+  expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS\s+"stage"\s+TEXT/i)
+  expect(sql).not.toMatch(/"stage"\s+TEXT\s+NOT NULL/i)
+})
+
+test('sync_log progress migration adds games_total INTEGER NOT NULL DEFAULT 0', () => {
+  const sql = readFileSync(SYNC_PROGRESS_MIGRATION_PATH, 'utf8')
+  expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS\s+"games_total"\s+INTEGER[\s\S]*NOT NULL[\s\S]*DEFAULT\s+0/i)
+})

@@ -182,6 +182,32 @@ describe('runSync', () => {
     expect(calls.completed[0].result).toEqual({ gamesProcessed: 1, cardsCreated: 5, errors: [] })
   })
 
+  it('invokes onProgress with stage + counts: fetching → analyzing → per-game → complete', async () => {
+    const { db } = makeMockDb()
+    const progress: Array<{ stage: string; gamesProcessed: number; gamesTotal: number; cardsCreated: number }> = []
+
+    mockedGenerate.mockResolvedValue({ created: 2, skipped: 0 })
+
+    await runSync('historical', {
+      username: 'player',
+      userId: USER_ID,
+      db,
+      gamesFetcher: async () => ['<pgn-1>', '<pgn-2>'],
+      onProgress: async (p) => { progress.push(p) },
+    })
+
+    expect(progress[0]).toEqual({ stage: 'fetching', gamesProcessed: 0, gamesTotal: 0, cardsCreated: 0 })
+    expect(progress[1]).toEqual({ stage: 'analyzing', gamesProcessed: 0, gamesTotal: 2, cardsCreated: 0 })
+    expect(progress[2]).toEqual({ stage: 'analyzing', gamesProcessed: 1, gamesTotal: 2, cardsCreated: 2 })
+    expect(progress[3]).toEqual({ stage: 'analyzing', gamesProcessed: 2, gamesTotal: 2, cardsCreated: 4 })
+    expect(progress[progress.length - 1]).toEqual({
+      stage: 'complete',
+      gamesProcessed: 2,
+      gamesTotal: 2,
+      cardsCreated: 4,
+    })
+  })
+
   it('when the fetcher itself throws, propagates and leaves the sync_log row without a completion', async () => {
     const { db } = makeMockDb()
     const { logger, calls } = makeLoggerSpy()

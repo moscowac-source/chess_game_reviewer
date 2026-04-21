@@ -680,6 +680,44 @@ Note — Issue #33 mentioned extending `/api/review/counts`, but that endpoint r
 
 ---
 
+### Mini-plan: Issue #36 — Real-time sync progress via background job
+
+**What the user will see change.** Clicking "Begin import" during onboarding or "Sync now" on the /sync page no longer blocks the browser waiting for the whole pipeline to finish. The work happens in the background on a managed queue. While it runs, the page shows live progress — games done out of games total, current pipeline stage, and cards created — by polling a progress endpoint. Closing the browser mid-sync does not stop the run; reopening the page picks up the live progress. Previously the onboarding bar was fake (just animated on a timer until the one slow request returned).
+
+**Why background.** Vercel serverless functions cap at ~30 seconds. Historical imports for users with many games exceed that limit. A managed queue (Inngest) runs the pipeline in its own invocation, outside the 30s ceiling, while the app polls a status row.
+
+**Database changes.** Migration `010_sync_log_progress.sql` adds two columns to `sync_log`:
+- `stage TEXT` — current pipeline stage: `queued` | `fetching` | `analyzing` | `complete` | `error`. Nullable for legacy rows.
+- `games_total INTEGER NOT NULL DEFAULT 0` — total PGNs the run will process; populated once the fetch stage completes.
+
+**API changes.**
+- New `POST /api/sync/start` — auth-scoped. Accepts `{ mode: 'historical' | 'incremental' }`. Inserts a `sync_log` row with `stage='queued'`, sends an Inngest event `sync/run` with `{ syncLogId, userId, username, mode }`, returns `{ sync_id }` immediately.
+- New `GET /api/sync/progress?id=<sync_id>` — auth-scoped. Returns `{ stage, games_done, games_total, cards_created, error }`. 404 if the row is not owned by the caller.
+- New `POST /api/inngest` (also `PUT` and `GET` per Inngest's protocol) — where Inngest delivers events. Registers the `syncGames` function.
+- Existing `POST /api/sync` stays as a synchronous path (used by tests and any internal callers that prefer to block on the pipeline). It is no longer called from the UI.
+
+**Pipeline change.** `runSync` in `lib/sync-orchestrator.ts` gains an optional `onProgress` callback, called with `{ stage, gamesProcessed, gamesTotal, cardsCreated }` after each PGN finishes. The Inngest function wires this to an UPDATE of the current `sync_log` row.
+
+**Supabase access from the worker.** The Inngest function runs without the user's session cookie. It uses a new service-role client (`SUPABASE_SERVICE_ROLE_KEY` env var) that bypasses RLS. The event payload restricts operations to the specific `syncLogId` and `userId` the event was enqueued for.
+
+**UI changes.**
+- `app/onboard/page.tsx` ImportStep: POST `/api/sync/start`, then poll `/api/sync/progress?id=` every ~1s. Progress bar tracks `games_done / games_total * 100`. Log lines reflect the real `stage`. Completion fires `onDone`.
+- `app/sync/page.tsx` "Sync now": same pattern — POST start, poll progress until stage is `complete` or `error`, then refresh status + history.
+
+**Acceptance criteria.**
+- [ ] Migration `010_sync_log_progress.sql` adds `stage TEXT` and `games_total INT NOT NULL DEFAULT 0` to `sync_log`
+- [ ] `types/database.ts` reflects the new columns
+- [ ] `runSync` accepts an optional `onProgress` callback and calls it after each PGN with the latest counts + stage
+- [ ] `POST /api/sync/start` inserts a `sync_log` row, enqueues an Inngest event, and returns `{ sync_id }` — does not run the pipeline inline
+- [ ] Unauthenticated requests to `POST /api/sync/start` return 401
+- [ ] `GET /api/sync/progress?id=<sync_id>` returns `{ stage, games_done, games_total, cards_created, error }`
+- [ ] `GET /api/sync/progress` returns 401 unauthenticated and 404 when the row is not owned by the caller
+- [ ] Inngest function `syncGames` updates the target `sync_log` row with `stage` and progressive counts as it runs
+- [ ] Onboarding ImportStep polls `/api/sync/progress` and reflects real counts from the row
+- [ ] `/sync` page "Sync now" polls `/api/sync/progress` and refreshes status + history on completion
+
+---
+
 ## Phase 21: Move Explanations (V2 Enhancement)
 
 **User stories**: TBD

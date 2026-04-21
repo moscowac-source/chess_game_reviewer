@@ -61,6 +61,8 @@ export interface ReviewLog {
 
 export type SyncMode = 'historical' | 'incremental'
 
+export type SyncStage = 'queued' | 'fetching' | 'analyzing' | 'complete' | 'error'
+
 export interface SyncLog {
   id: string
   user_id: string
@@ -70,4 +72,6 @@ export interface SyncLog {
   games_processed: number
   cards_created: number
   error: string | null
+  stage: SyncStage | null
+  games_total: number
 }

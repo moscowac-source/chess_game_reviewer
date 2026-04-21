@@ -10,6 +10,15 @@ export interface SyncResult {
   errors: string[]
 }
 
+export type SyncProgressStage = 'queued' | 'fetching' | 'analyzing' | 'complete' | 'error'
+
+export interface SyncProgress {
+  stage: SyncProgressStage
+  gamesProcessed: number
+  gamesTotal: number
+  cardsCreated: number
+}
+
 export interface SyncLogger {
   logStart(mode: 'historical' | 'incremental'): Promise<string>
   logComplete(id: string, result: SyncResult): Promise<void>
@@ -22,6 +31,7 @@ export interface SyncOptions {
   gamesFetcher?: (username: string, mode: 'historical' | 'incremental') => Promise<string[]>
   engineFactory?: () => UciEngine
   syncLogger?: SyncLogger
+  onProgress?: (progress: SyncProgress) => Promise<void> | void
 }
 
 async function ensureGameRow(
@@ -64,16 +74,24 @@ export async function runSync(
   mode: 'historical' | 'incremental',
   options: SyncOptions,
 ): Promise<SyncResult> {
-  const { username, userId, db, gamesFetcher, engineFactory, syncLogger } = options
+  const { username, userId, db, gamesFetcher, engineFactory, syncLogger, onProgress } = options
 
   const logId = await syncLogger?.logStart(mode)
 
   const fetcher = gamesFetcher ?? ((u, m) => fetchGames(u, m))
+  await onProgress?.({ stage: 'fetching', gamesProcessed: 0, gamesTotal: 0, cardsCreated: 0 })
   const pgns = await fetcher(username, mode)
 
   let gamesProcessed = 0
   let cardsCreated = 0
   const errors: string[] = []
+
+  await onProgress?.({
+    stage: 'analyzing',
+    gamesProcessed: 0,
+    gamesTotal: pgns.length,
+    cardsCreated: 0,
+  })
 
   for (const pgn of pgns) {
     try {
@@ -87,6 +105,13 @@ export async function runSync(
     } catch (err) {
       errors.push(err instanceof Error ? err.message : String(err))
     }
+
+    await onProgress?.({
+      stage: 'analyzing',
+      gamesProcessed,
+      gamesTotal: pgns.length,
+      cardsCreated,
+    })
   }
 
   const syncResult = { gamesProcessed, cardsCreated, errors }
@@ -94,6 +119,13 @@ export async function runSync(
   if (logId) {
     await syncLogger?.logComplete(logId, syncResult)
   }
+
+  await onProgress?.({
+    stage: errors.length > 0 && gamesProcessed === 0 ? 'error' : 'complete',
+    gamesProcessed,
+    gamesTotal: pgns.length,
+    cardsCreated,
+  })
 
   return syncResult
 }
