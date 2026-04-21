@@ -1,23 +1,16 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
-import { getSessionUser } from '@/lib/supabase-server'
+import { withAuthedRoute } from '@/lib/with-authed-route'
+import { apiError } from '@/lib/api-response'
 
-export async function GET() {
-  const user = await getSessionUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const { data, error } = await supabase
+export const GET = withAuthedRoute(async ({ db, user }) => {
+  const { data, error } = await db
     .from('sync_log')
     .select('*')
     .eq('user_id', user.id)
     .order('started_at', { ascending: false })
     .limit(7)
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  if (error) return apiError(500, error.message)
 
   return NextResponse.json(data ?? [])
-}
+})
