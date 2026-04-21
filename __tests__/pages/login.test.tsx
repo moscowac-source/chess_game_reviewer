@@ -20,46 +20,37 @@ beforeEach(() => {
   jest.clearAllMocks()
 })
 
-// ---------------------------------------------------------------------------
-// Test 1: renders email, password fields and submit button
-// ---------------------------------------------------------------------------
 it('renders email, password fields and submit button', () => {
   render(<LoginPage />)
   expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
   expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: /log in/i })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
 })
 
-// ---------------------------------------------------------------------------
-// Test 2: calls signInWithPassword and redirects to / on success
-// ---------------------------------------------------------------------------
-it('calls signInWithPassword and redirects to / on success', async () => {
+it('calls signInWithPassword and redirects to /dashboard on success', async () => {
   mockSignIn.mockResolvedValue({ error: null })
   render(<LoginPage />)
 
   await userEvent.type(screen.getByLabelText(/email/i), 'test@example.com')
   await userEvent.type(screen.getByLabelText(/password/i), 'password123')
-  await userEvent.click(screen.getByRole('button', { name: /log in/i }))
+  await userEvent.click(screen.getByRole('button', { name: /sign in/i }))
 
   await waitFor(() => {
     expect(mockSignIn).toHaveBeenCalledWith({
       email: 'test@example.com',
       password: 'password123',
     })
-    expect(mockPush).toHaveBeenCalledWith('/')
+    expect(mockPush).toHaveBeenCalledWith('/dashboard')
   })
 })
 
-// ---------------------------------------------------------------------------
-// Test 3: shows error message on failed login
-// ---------------------------------------------------------------------------
 it('shows error message on failed login', async () => {
   mockSignIn.mockResolvedValue({ error: { message: 'Invalid login credentials' } })
   render(<LoginPage />)
 
   await userEvent.type(screen.getByLabelText(/email/i), 'test@example.com')
   await userEvent.type(screen.getByLabelText(/password/i), 'wrongpass')
-  await userEvent.click(screen.getByRole('button', { name: /log in/i }))
+  await userEvent.click(screen.getByRole('button', { name: /sign in/i }))
 
   await waitFor(() => {
     expect(screen.getByTestId('auth-error')).toHaveTextContent('Invalid login credentials')
