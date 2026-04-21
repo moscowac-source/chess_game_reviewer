@@ -1,6 +1,6 @@
 import { fetchGames } from '../../../lib/chess-com/client'
 
-const ARCHIVE_LIST_URL = 'https://api.chess.com/pub/player/testuser/archives'
+const ARCHIVE_LIST_URL = 'https://api.chess.com/pub/player/testuser/games/archives'
 const ARCHIVE_JAN = 'https://api.chess.com/pub/player/testuser/games/2024/01'
 const ARCHIVE_FEB = 'https://api.chess.com/pub/player/testuser/games/2024/02'
 const ARCHIVE_MAR = 'https://api.chess.com/pub/player/testuser/games/2024/03'
@@ -10,6 +10,8 @@ const PGN_FEB = '[Event "Live Chess"]\n1. d4 d5 *'
 const PGN_MAR = '[Event "Live Chess"]\n1. c4 c5 *'
 
 function makeFetchMock(responses: Record<string, { status: number; body: unknown }>) {
+  // fetchGames now passes a second arg (`{ headers: { User-Agent } }`) to every
+  // fetch call. Ignore it here and match by URL alone.
   return jest.fn().mockImplementation((url: string) => {
     const entry = responses[url]
     if (!entry) throw new Error(`Unexpected fetch call: ${url}`)
@@ -42,8 +44,8 @@ describe('fetchGames — incremental mode', () => {
 
     expect(result).toEqual([PGN_MAR])
     expect(global.fetch).toHaveBeenCalledTimes(2)
-    expect(global.fetch).toHaveBeenCalledWith(ARCHIVE_LIST_URL)
-    expect(global.fetch).toHaveBeenCalledWith(ARCHIVE_MAR)
+    expect(global.fetch).toHaveBeenCalledWith(ARCHIVE_LIST_URL, expect.anything())
+    expect(global.fetch).toHaveBeenCalledWith(ARCHIVE_MAR, expect.anything())
   })
 
   it('returns empty array when archive list is empty', async () => {
