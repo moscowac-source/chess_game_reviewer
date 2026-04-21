@@ -16,24 +16,9 @@ beforeEach(() => {
   jest.clearAllMocks()
 })
 
-// ---------------------------------------------------------------------------
-// Test 1: redirects unauthenticated request to /login
-// ---------------------------------------------------------------------------
-it('redirects unauthenticated requests to /login', async () => {
+// Landing page (/) is public; logged-in users are routed through to /dashboard.
+it('allows unauthenticated access to / (landing page is public)', async () => {
   mockGetUser.mockResolvedValue({ data: { user: null } })
-
-  const req = new NextRequest('http://localhost/')
-  const res = await middleware(req)
-
-  expect(res.status).toBe(307)
-  expect(res.headers.get('location')).toContain('/login')
-})
-
-// ---------------------------------------------------------------------------
-// Test 2: passes authenticated requests through
-// ---------------------------------------------------------------------------
-it('passes authenticated requests through', async () => {
-  mockGetUser.mockResolvedValue({ data: { user: { id: 'user-123' } } })
 
   const req = new NextRequest('http://localhost/')
   const res = await middleware(req)
@@ -41,24 +26,59 @@ it('passes authenticated requests through', async () => {
   expect(res.status).toBe(200)
 })
 
-// ---------------------------------------------------------------------------
-// Test 3: /login is public — no redirect
-// ---------------------------------------------------------------------------
+it('redirects authenticated requests on / to /dashboard', async () => {
+  mockGetUser.mockResolvedValue({ data: { user: { id: 'user-123' } } })
+
+  const req = new NextRequest('http://localhost/')
+  const res = await middleware(req)
+
+  expect(res.status).toBe(307)
+  expect(res.headers.get('location')).toContain('/dashboard')
+})
+
+it('redirects unauthenticated requests to /dashboard back to /login', async () => {
+  mockGetUser.mockResolvedValue({ data: { user: null } })
+
+  const req = new NextRequest('http://localhost/dashboard')
+  const res = await middleware(req)
+
+  expect(res.status).toBe(307)
+  expect(res.headers.get('location')).toContain('/login')
+})
+
+it('passes authenticated requests to /dashboard through', async () => {
+  mockGetUser.mockResolvedValue({ data: { user: { id: 'user-123' } } })
+
+  const req = new NextRequest('http://localhost/dashboard')
+  const res = await middleware(req)
+
+  expect(res.status).toBe(200)
+})
+
 it('allows unauthenticated access to /login', async () => {
+  mockGetUser.mockResolvedValue({ data: { user: null } })
+
   const req = new NextRequest('http://localhost/login')
   const res = await middleware(req)
 
   expect(res.status).not.toBe(307)
-  expect(mockGetUser).not.toHaveBeenCalled()
 })
 
-// ---------------------------------------------------------------------------
-// Test 4: /signup is public — no redirect
-// ---------------------------------------------------------------------------
 it('allows unauthenticated access to /signup', async () => {
+  mockGetUser.mockResolvedValue({ data: { user: null } })
+
   const req = new NextRequest('http://localhost/signup')
   const res = await middleware(req)
 
   expect(res.status).not.toBe(307)
-  expect(mockGetUser).not.toHaveBeenCalled()
+})
+
+it('redirects authenticated requests on /login to /dashboard', async () => {
+  mockGetUser.mockResolvedValue({ data: { user: { id: 'user-123' } } })
+
+  const req = new NextRequest('http://localhost/login')
+  const res = await middleware(req)
+
+  expect(res.status).toBe(307)
+  expect(res.headers.get('location')).toContain('/dashboard')
 })
