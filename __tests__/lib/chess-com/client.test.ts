@@ -65,7 +65,8 @@ describe('fetchMonthlyArchive', () => {
 
     expect(result).toEqual([FAKE_PGN_1, FAKE_PGN_2])
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://api.chess.com/pub/player/testuser/games/2024/03'
+      'https://api.chess.com/pub/player/testuser/games/2024/03',
+      expect.objectContaining({ headers: expect.any(Object) }),
     )
   })
 })
