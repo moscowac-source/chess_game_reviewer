@@ -1,7 +1,8 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Nav, Page, Button, Tag, Stat, MiniBoard } from '@/components/ui'
+import { Nav, Page, Button, Tag, MiniBoard } from '@/components/ui'
+import { StatTile } from '@/components/StatTile'
 import {
   useCounts,
   useReviewSession,
@@ -122,11 +123,46 @@ export default function DashboardPage() {
 
         {/* Stats strip */}
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 36, padding: '40px 0', borderBottom: '1px solid var(--line)' }}>
-          <Stat big={dueToday ?? '—'} label="Due today" mono />
-          <Stat big={newCards ?? '—'} label="New cards" mono />
-          <Stat big={streak.data?.streak ?? '—'} label="Day streak" mono />
-          <Stat big={accuracy.data?.accuracy != null ? `${accuracy.data.accuracy}%` : '—'} label="7-day accuracy" mono />
-          <Stat big={counts.data ? Object.values(counts.data).reduce((a, b) => a + b, 0) : '—'} label="Total in deck" mono />
+          <StatTile
+            label="Due today"
+            value={dueToday}
+            loading={counts.loading}
+            error={counts.error}
+            onRetry={counts.refetch}
+            mono
+          />
+          <StatTile
+            label="New cards"
+            value={newCards}
+            loading={session.loading}
+            error={session.error}
+            onRetry={session.refetch}
+            mono
+          />
+          <StatTile
+            label="Day streak"
+            value={streak.data?.streak}
+            loading={streak.loading}
+            error={streak.error}
+            onRetry={streak.refetch}
+            mono
+          />
+          <StatTile
+            label="7-day accuracy"
+            value={accuracy.data?.accuracy != null ? `${accuracy.data.accuracy}%` : null}
+            loading={accuracy.loading}
+            error={accuracy.error}
+            onRetry={accuracy.refetch}
+            mono
+          />
+          <StatTile
+            label="Total in deck"
+            value={counts.data ? Object.values(counts.data).reduce((a, b) => a + b, 0) : null}
+            loading={counts.loading}
+            error={counts.error}
+            onRetry={counts.refetch}
+            mono
+          />
         </section>
 
         {/* Deck breakdown */}
