@@ -100,15 +100,22 @@ function validateSyncHistory(raw: unknown): SyncLog[] | null {
 
 function validateUserSettings(
   raw: unknown,
-): { daily_new_limit: number; first_name: string | null; last_name: string | null } | null {
+): {
+  daily_new_limit: number
+  first_name: string | null
+  last_name: string | null
+  chess_com_username: string | null
+} | null {
   if (!isObj(raw) || typeof raw.daily_new_limit !== 'number') return null
-  const { first_name, last_name } = raw
+  const { first_name, last_name, chess_com_username } = raw
   if (first_name !== null && typeof first_name !== 'string') return null
   if (last_name !== null && typeof last_name !== 'string') return null
+  if (chess_com_username !== null && typeof chess_com_username !== 'string') return null
   return {
     daily_new_limit: raw.daily_new_limit,
     first_name: first_name as string | null,
     last_name: last_name as string | null,
+    chess_com_username: chess_com_username as string | null,
   }
 }
 
@@ -348,6 +355,7 @@ export function useUserSettings(): FetchResult<{
   daily_new_limit: number
   first_name: string | null
   last_name: string | null
+  chess_com_username: string | null
 }> {
   return useFetchJson('/api/user/settings', validateUserSettings)
 }
