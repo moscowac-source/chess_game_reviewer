@@ -22,3 +22,8 @@ tsconfig.tsbuildinfo
 
 # Supabase CLI temp files
 supabase/.temp/
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
