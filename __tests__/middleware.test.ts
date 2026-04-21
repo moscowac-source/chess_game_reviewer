@@ -82,3 +82,12 @@ it('redirects authenticated requests on /login to /dashboard', async () => {
   expect(res.status).toBe(307)
   expect(res.headers.get('location')).toContain('/dashboard')
 })
+
+it('allows unauthenticated access to /api/inngest (Inngest webhook)', async () => {
+  mockGetUser.mockResolvedValue({ data: { user: null } })
+
+  const req = new NextRequest('http://localhost/api/inngest')
+  const res = await middleware(req)
+
+  expect(res.status).not.toBe(307)
+})

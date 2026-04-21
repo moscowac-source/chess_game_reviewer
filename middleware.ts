@@ -7,6 +7,12 @@ const PUBLIC_PATHS = ['/', '/login', '/signup']
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Inngest's webhook endpoint must be reachable without a user session —
+  // Inngest signs requests with its own signing key, verified inside the handler.
+  if (pathname.startsWith('/api/inngest')) {
+    return NextResponse.next()
+  }
+
   let response = NextResponse.next({
     request: { headers: request.headers },
   })
