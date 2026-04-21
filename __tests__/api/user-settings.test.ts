@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { PATCH } from '@/app/api/user/settings/route'
+import { GET, PATCH } from '@/app/api/user/settings/route'
 import { makeMockDb } from '@/__tests__/helpers/mock-db'
 
 const USER = '00000000-0000-0000-0000-000000000001'
@@ -14,6 +14,32 @@ function makeRequest(body: unknown) {
     body: JSON.stringify(body),
   })
 }
+
+function makeGetRequest() {
+  return new Request('http://localhost/api/user/settings', { method: 'GET' })
+}
+
+describe('GET /api/user/settings', () => {
+  it('returns the current user\'s daily_new_limit', async () => {
+    const { db } = makeMockDb({ users: [{ id: USER, daily_new_limit: 15 }] })
+
+    const response = await GET(makeGetRequest(), { db, authFn: async () => ({ id: USER }) })
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toEqual({ daily_new_limit: 15 })
+  })
+
+  it('defaults to 10 when no row exists for the user', async () => {
+    const { db } = makeMockDb({ users: [] })
+
+    const response = await GET(makeGetRequest(), { db, authFn: async () => ({ id: USER }) })
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toEqual({ daily_new_limit: 10 })
+  })
+})
 
 describe('PATCH /api/user/settings', () => {
   it('returns 401 when no authenticated user', async () => {

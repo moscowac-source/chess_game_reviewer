@@ -2,26 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import { Nav, Page, Button } from '@/components/ui'
-import { createClient } from '@/lib/supabase-browser'
+import { useUserSettings } from '@/hooks/dashboard'
 
 export default function SettingsPage() {
+  const settings = useUserSettings()
   const [newPerDay, setNewPerDay] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) return
-      const { data: row } = await supabase
-        .from('users')
-        .select('daily_new_limit')
-        .eq('id', data.user.id)
-        .single()
-      setNewPerDay(row?.daily_new_limit ?? 10)
-    })
-  }, [])
+    if (settings.data && newPerDay === null) {
+      setNewPerDay(settings.data.daily_new_limit)
+    }
+  }, [settings.data, newPerDay])
 
   const handleSave = async () => {
     if (newPerDay === null) return

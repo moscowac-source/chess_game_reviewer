@@ -97,6 +97,11 @@ function validateSyncHistory(raw: unknown): SyncLog[] | null {
   return raw as SyncLog[]
 }
 
+function validateUserSettings(raw: unknown): { daily_new_limit: number } | null {
+  if (!isObj(raw) || typeof raw.daily_new_limit !== 'number') return null
+  return { daily_new_limit: raw.daily_new_limit }
+}
+
 export function useCounts(): FetchResult<ModeCounts> {
   return useFetchJson('/api/review/counts', validateCounts)
 }
@@ -129,4 +134,8 @@ export function useSyncStatus(): FetchResult<{ log: SyncLog | null }> {
 
 export function useSyncHistory(): FetchResult<SyncLog[]> {
   return useFetchJson('/api/sync/history', validateSyncHistory)
+}
+
+export function useUserSettings(): FetchResult<{ daily_new_limit: number }> {
+  return useFetchJson('/api/user/settings', validateUserSettings)
 }
