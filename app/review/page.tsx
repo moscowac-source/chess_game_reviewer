@@ -4,7 +4,10 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Nav, Tag, Button } from '@/components/ui'
 import { ReviewBoard, type Outcome } from '@/components/ReviewBoard'
-import type { SessionCard, ReviewSession } from '@/lib/review-session-manager'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { ReviewCrashed } from '@/components/ReviewCrashed'
+import { useReviewSession } from '@/hooks/dashboard'
+import type { SessionCard } from '@/lib/review-session-manager'
 
 type Phase = 'board' | 'rating' | 'done'
 
@@ -213,19 +216,17 @@ function ReviewContent() {
   const router = useRouter()
   const mode = searchParams.get('mode') ?? 'standard'
 
-  const [queue, setQueue] = useState<SessionCard[]>([])
+  const session = useReviewSession(mode)
+  const loading = session.loading
+  const queue: SessionCard[] = session.data?.cards ?? []
+
   const [index, setIndex] = useState(0)
-  const [loading, setLoading] = useState(true)
   const [phase, setPhase] = useState<Phase>('board')
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [wrongAttempts, setWrongAttempts] = useState(0)
   const [correctCount, setCorrectCount] = useState(0)
 
-  useEffect(() => {
-    fetch(`/api/review/session?mode=${mode}`)
-      .then((r) => r.json())
-      .then((s: ReviewSession) => { setQueue(s.cards); setLoading(false) })
-  }, [mode])
+  if (session.error) throw session.error
 
   // Reset per-card state when index changes
   useEffect(() => {
@@ -369,8 +370,10 @@ function ReviewContent() {
 
 export default function ReviewPage() {
   return (
-    <Suspense>
-      <ReviewContent />
-    </Suspense>
+    <ErrorBoundary fallback={<ReviewCrashed />}>
+      <Suspense>
+        <ReviewContent />
+      </Suspense>
+    </ErrorBoundary>
   )
 }
