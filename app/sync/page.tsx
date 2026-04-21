@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Nav, Page, Button, Stat } from '@/components/ui'
 import { useSyncStatus, useSyncHistory } from '@/hooks/dashboard'
+import { pollSyncUntilTerminal } from '@/lib/poll-sync-progress'
 import type { SyncLog } from '@/types/database'
 
 export default function SyncPage() {
@@ -41,25 +42,17 @@ export default function SyncPage() {
     }
     const { sync_id } = await res.json()
 
-    // Poll progress until terminal
-    let terminal: 'complete' | 'error' | null = null
-    while (terminal === null) {
-      await new Promise((r) => setTimeout(r, 1000))
-      try {
-        const pr = await fetch(`/api/sync/progress?id=${encodeURIComponent(sync_id)}`)
-        if (!pr.ok) continue
-        const data = await pr.json()
-        setProgressStage(data.stage ?? 'queued')
-        setProgressDone(data.games_done ?? 0)
-        setProgressTotal(data.games_total ?? 0)
-        if (data.stage === 'complete') terminal = 'complete'
-        else if (data.stage === 'error') {
-          terminal = 'error'
-          setSyncError(data.error ?? 'Sync failed')
-        }
-      } catch {
-        // keep polling
-      }
+    const result = await pollSyncUntilTerminal(sync_id, {
+      onProgress: (snap) => {
+        setProgressStage(snap.stage ?? 'queued')
+        setProgressDone(snap.games_done ?? 0)
+        setProgressTotal(snap.games_total ?? 0)
+      },
+    })
+    if (result.outcome === 'error') {
+      setSyncError(result.error ?? 'Sync failed')
+    } else if (result.outcome === 'timeout') {
+      setSyncError('Sync is taking longer than expected — check back on this page in a minute.')
     }
 
     statusFetch.refetch()
