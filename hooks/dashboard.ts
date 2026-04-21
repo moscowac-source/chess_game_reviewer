@@ -97,9 +97,40 @@ function validateSyncHistory(raw: unknown): SyncLog[] | null {
   return raw as SyncLog[]
 }
 
-function validateUserSettings(raw: unknown): { daily_new_limit: number } | null {
+function validateUserSettings(
+  raw: unknown,
+): { daily_new_limit: number; first_name: string | null; last_name: string | null } | null {
   if (!isObj(raw) || typeof raw.daily_new_limit !== 'number') return null
-  return { daily_new_limit: raw.daily_new_limit }
+  const { first_name, last_name } = raw
+  if (first_name !== null && typeof first_name !== 'string') return null
+  if (last_name !== null && typeof last_name !== 'string') return null
+  return {
+    daily_new_limit: raw.daily_new_limit,
+    first_name: first_name as string | null,
+    last_name: last_name as string | null,
+  }
+}
+
+export interface Me {
+  email: string | null
+  username: string | null
+  first_name: string | null
+  last_name: string | null
+}
+
+function validateMe(raw: unknown): Me | null {
+  if (!isObj(raw)) return null
+  const { email, username, first_name, last_name } = raw
+  if (email !== null && typeof email !== 'string') return null
+  if (username !== null && typeof username !== 'string') return null
+  if (first_name !== null && typeof first_name !== 'string') return null
+  if (last_name !== null && typeof last_name !== 'string') return null
+  return {
+    email: email as string | null,
+    username: username as string | null,
+    first_name: first_name as string | null,
+    last_name: last_name as string | null,
+  }
 }
 
 export function useCounts(): FetchResult<ModeCounts> {
@@ -136,6 +167,14 @@ export function useSyncHistory(): FetchResult<SyncLog[]> {
   return useFetchJson('/api/sync/history', validateSyncHistory)
 }
 
-export function useUserSettings(): FetchResult<{ daily_new_limit: number }> {
+export function useUserSettings(): FetchResult<{
+  daily_new_limit: number
+  first_name: string | null
+  last_name: string | null
+}> {
   return useFetchJson('/api/user/settings', validateUserSettings)
+}
+
+export function useMe(): FetchResult<Me> {
+  return useFetchJson('/api/me', validateMe)
 }

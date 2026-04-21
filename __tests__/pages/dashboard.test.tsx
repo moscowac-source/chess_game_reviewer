@@ -40,6 +40,7 @@ function mockFetches(mocks: FetchMocks) {
     if (url.startsWith('/api/stats/accuracy')) return ok(mocks.accuracy ?? { accuracy: null, totalReviews: 0 })
     if (url === '/api/stats/classification') return ok(mocks.classification ?? { blunder: 0, mistake: 0, great: 0, brilliant: 0 })
     if (url.startsWith('/api/games/recent')) return ok(mocks.recentGames ?? [])
+    if (url === '/api/me') return ok({ email: null, username: null, first_name: null, last_name: null })
     throw new Error(`Unexpected fetch: ${url}`)
   })
 }

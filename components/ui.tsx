@@ -1,8 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode, InputHTMLAttributes } from 'react'
+import { useMe } from '@/hooks/dashboard'
+import { createClient } from '@/lib/supabase-browser'
 
 // ── FEN utilities (no chess.js dependency needed for rendering) ────────────
 
@@ -51,6 +54,121 @@ const NAV_ITEMS = [
   { path: '/sync', label: 'Sync' },
 ]
 
+function deriveDisplay(me: {
+  first_name: string | null
+  last_name: string | null
+  username: string | null
+  email: string | null
+} | null): { initial: string; label: string } {
+  if (me?.first_name) {
+    const label = me.last_name ? `${me.first_name} ${me.last_name}` : me.first_name
+    return { initial: me.first_name[0].toUpperCase(), label }
+  }
+  if (me?.username) return { initial: me.username[0].toUpperCase(), label: me.username }
+  if (me?.email) return { initial: me.email[0].toUpperCase(), label: me.email }
+  return { initial: '·', label: '' }
+}
+
+function UserMenu() {
+  const router = useRouter()
+  const { data: me } = useMe()
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [open])
+
+  const { initial, label } = deriveDisplay(me)
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    setOpen(false)
+    router.push('/login')
+    router.refresh()
+  }
+
+  function go(path: string) {
+    setOpen(false)
+    router.push(path)
+  }
+
+  const itemStyle: CSSProperties = {
+    display: 'block', width: '100%', textAlign: 'left',
+    background: 'transparent', border: 'none', cursor: 'pointer',
+    padding: '10px 14px', fontFamily: 'var(--sans)', fontSize: 13,
+    color: 'var(--ink)',
+  }
+
+  return (
+    <div ref={rootRef} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        data-testid="user-avatar"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
+        }}
+      >
+        {label && (
+          <span style={{ fontSize: 13, color: 'var(--muted)', fontFamily: 'var(--sans)' }}>
+            {label}
+          </span>
+        )}
+        <span style={{
+          width: 28, height: 28, borderRadius: '50%',
+          background: 'var(--ink)', color: 'var(--bg)',
+          display: 'grid', placeItems: 'center',
+          fontFamily: 'var(--serif)', fontSize: 13,
+        }}>
+          {initial}
+        </span>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          style={{
+            position: 'absolute', right: 0, top: 'calc(100% + 8px)',
+            minWidth: 180,
+            background: 'var(--bg)', border: '1px solid var(--line)',
+            boxShadow: '0 10px 30px -10px rgba(0,0,0,0.2)',
+            zIndex: 20,
+          }}
+        >
+          <button type="button" role="menuitem" style={itemStyle} onClick={() => go('/settings')}>Settings</button>
+          <button type="button" role="menuitem" style={itemStyle} onClick={() => go('/sync')}>Sync status</button>
+          <div style={{ height: 1, background: 'var(--line)' }} />
+          <button
+            type="button"
+            role="menuitem"
+            data-testid="logout-button"
+            style={itemStyle}
+            onClick={handleLogout}
+          >
+            Log out
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function Nav() {
   const pathname = usePathname()
 
@@ -80,14 +198,7 @@ export function Nav() {
         ))}
       </nav>
       <div style={{ marginLeft: 'auto' }}>
-        <div style={{
-          width: 28, height: 28, borderRadius: '50%',
-          background: 'var(--ink)', color: 'var(--bg)',
-          display: 'grid', placeItems: 'center',
-          fontFamily: 'var(--serif)', fontSize: 13,
-        }}>
-          C
-        </div>
+        <UserMenu />
       </div>
     </header>
   )

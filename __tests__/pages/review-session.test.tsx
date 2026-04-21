@@ -76,6 +76,9 @@ function mockFetch(sessionCards: typeof CARD_A[]) {
     if (typeof url === 'string' && url.startsWith('/api/review/cards/') && init?.method === 'PATCH') {
       return Promise.resolve({ ok: true, json: async () => ({ success: true }) })
     }
+    if (url === '/api/me') {
+      return Promise.resolve({ ok: true, json: async () => ({ email: null, username: null, first_name: null, last_name: null }) })
+    }
     throw new Error(`Unexpected fetch: ${url}`)
   })
   global.fetch = mock

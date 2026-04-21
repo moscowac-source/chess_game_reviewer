@@ -20,24 +20,26 @@ function makeGetRequest() {
 }
 
 describe('GET /api/user/settings', () => {
-  it('returns the current user\'s daily_new_limit', async () => {
-    const { db } = makeMockDb({ users: [{ id: USER, daily_new_limit: 15 }] })
+  it("returns the current user's settings including name fields", async () => {
+    const { db } = makeMockDb({
+      users: [{ id: USER, daily_new_limit: 15, first_name: 'Ada', last_name: 'Lovelace' }],
+    })
 
     const response = await GET(makeGetRequest(), { db, authFn: async () => ({ id: USER }) })
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body).toEqual({ daily_new_limit: 15 })
+    expect(body).toEqual({ daily_new_limit: 15, first_name: 'Ada', last_name: 'Lovelace' })
   })
 
-  it('defaults to 10 when no row exists for the user', async () => {
+  it('defaults daily_new_limit to 10 and names to null when no row exists', async () => {
     const { db } = makeMockDb({ users: [] })
 
     const response = await GET(makeGetRequest(), { db, authFn: async () => ({ id: USER }) })
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body).toEqual({ daily_new_limit: 10 })
+    expect(body).toEqual({ daily_new_limit: 10, first_name: null, last_name: null })
   })
 })
 
@@ -57,7 +59,6 @@ describe('PATCH /api/user/settings', () => {
     ['below the minimum', { daily_new_limit: 3 }],
     ['above the maximum', { daily_new_limit: 31 }],
     ['not an integer', { daily_new_limit: 10.5 }],
-    ['missing', {}],
     ['non-numeric', { daily_new_limit: 'twelve' }],
   ])('returns 400 and does not update when daily_new_limit is %s', async (_label, body) => {
     const { db, updated } = makeMockDb({ users: [{ id: USER, daily_new_limit: 10 }] })
@@ -71,7 +72,31 @@ describe('PATCH /api/user/settings', () => {
     expect(updated.users ?? []).toHaveLength(0)
   })
 
-  it('updates the current user row and returns 200 on valid input', async () => {
+  it('returns 400 when body has no updatable fields', async () => {
+    const { db, updated } = makeMockDb({ users: [{ id: USER, daily_new_limit: 10 }] })
+
+    const response = await PATCH(makeRequest({}), {
+      db,
+      authFn: async () => ({ id: USER }),
+    })
+
+    expect(response.status).toBe(400)
+    expect(updated.users ?? []).toHaveLength(0)
+  })
+
+  it('returns 400 when first_name is too long', async () => {
+    const { db, updated } = makeMockDb({ users: [{ id: USER }] })
+
+    const response = await PATCH(makeRequest({ first_name: 'A'.repeat(61) }), {
+      db,
+      authFn: async () => ({ id: USER }),
+    })
+
+    expect(response.status).toBe(400)
+    expect(updated.users ?? []).toHaveLength(0)
+  })
+
+  it('updates daily_new_limit only when that is the only field', async () => {
     const { db, updated } = makeMockDb({ users: [{ id: USER, daily_new_limit: 10 }] })
 
     const response = await PATCH(makeRequest({ daily_new_limit: 15 }), {
@@ -83,6 +108,57 @@ describe('PATCH /api/user/settings', () => {
     expect(updated.users).toEqual([
       {
         values: { daily_new_limit: 15 },
+        filters: [{ op: 'eq', col: 'id', val: USER }],
+      },
+    ])
+  })
+
+  it('updates first_name and last_name, trimming whitespace', async () => {
+    const { db, updated } = makeMockDb({ users: [{ id: USER }] })
+
+    const response = await PATCH(makeRequest({ first_name: '  Ada  ', last_name: 'Lovelace' }), {
+      db,
+      authFn: async () => ({ id: USER }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(updated.users).toEqual([
+      {
+        values: { first_name: 'Ada', last_name: 'Lovelace' },
+        filters: [{ op: 'eq', col: 'id', val: USER }],
+      },
+    ])
+  })
+
+  it('clears a name when passed an empty string or null', async () => {
+    const { db, updated } = makeMockDb({ users: [{ id: USER, first_name: 'Ada' }] })
+
+    const response = await PATCH(makeRequest({ first_name: '', last_name: null }), {
+      db,
+      authFn: async () => ({ id: USER }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(updated.users).toEqual([
+      {
+        values: { first_name: null, last_name: null },
+        filters: [{ op: 'eq', col: 'id', val: USER }],
+      },
+    ])
+  })
+
+  it('allows updating all three fields at once', async () => {
+    const { db, updated } = makeMockDb({ users: [{ id: USER, daily_new_limit: 10 }] })
+
+    const response = await PATCH(
+      makeRequest({ daily_new_limit: 20, first_name: 'Ada', last_name: 'Lovelace' }),
+      { db, authFn: async () => ({ id: USER }) },
+    )
+
+    expect(response.status).toBe(200)
+    expect(updated.users).toEqual([
+      {
+        values: { daily_new_limit: 20, first_name: 'Ada', last_name: 'Lovelace' },
         filters: [{ op: 'eq', col: 'id', val: USER }],
       },
     ])

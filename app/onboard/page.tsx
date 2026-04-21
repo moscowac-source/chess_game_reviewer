@@ -19,7 +19,84 @@ const IMPORT_LOG = [
   'Done.',
 ]
 
-// ── Step 1: Link Chess.com account ────────────────────────────────────────
+// ── Step 1: Your name (optional) ──────────────────────────────────────────
+
+function NameStep({ onDone }: { onDone: () => void }) {
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/me').then(async (r) => {
+      if (!r.ok) return
+      const data = await r.json().catch(() => null)
+      if (data?.first_name) setFirstName(data.first_name)
+      if (data?.last_name) setLastName(data.last_name)
+    })
+  }, [])
+
+  const handleContinue = async () => {
+    const first = firstName.trim()
+    const last = lastName.trim()
+    if (!first && !last) { onDone(); return }
+
+    setSaving(true)
+    setError(null)
+    try {
+      const body: Record<string, string> = {}
+      if (first) body.first_name = first
+      if (last) body.last_name = last
+      const res = await fetch('/api/user/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}))
+        setError(b.error ?? `Save failed (${res.status})`)
+        setSaving(false)
+        return
+      }
+      onDone()
+    } catch {
+      setError('Network error — please try again.')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{ maxWidth: 640, margin: '0 auto' }}>
+      <div className="mono" style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16 }}>Step 01</div>
+      <h1 className="serif" style={{ fontSize: 60, letterSpacing: '-0.03em', margin: 0, lineHeight: 1.02, fontWeight: 400 }}>
+        What should we <em style={{ color: 'var(--walnut)' }}>call you?</em>
+      </h1>
+      <p style={{ color: 'var(--ink-2)', lineHeight: 1.55, marginTop: 20, fontSize: 16 }}>
+        Optional — used for your avatar and greeting. You can skip this or change it later.
+      </p>
+
+      <div style={{ marginTop: 40, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <Field label="First name">
+          <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Ada" maxLength={60} />
+        </Field>
+        <Field label="Last name">
+          <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Lovelace" maxLength={60} />
+        </Field>
+      </div>
+
+      {error && <div style={{ color: 'var(--bad)', fontSize: 13, marginBottom: 16 }}>{error}</div>}
+
+      <div style={{ marginTop: 12, display: 'flex', gap: 12, alignItems: 'center' }}>
+        <Button size="lg" onClick={handleContinue} disabled={saving}>
+          {saving ? 'Saving…' : 'Continue →'}
+        </Button>
+        <Button size="lg" variant="secondary" onClick={onDone} disabled={saving}>Skip</Button>
+      </div>
+    </div>
+  )
+}
+
+// ── Step 2: Link Chess.com account ────────────────────────────────────────
 
 function LinkStep({ onNext }: { onNext: (username: string) => void }) {
   const [username, setUsername] = useState('')
@@ -67,7 +144,7 @@ function LinkStep({ onNext }: { onNext: (username: string) => void }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 80, alignItems: 'center' }}>
       <div>
-        <div className="mono" style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16 }}>Step 01</div>
+        <div className="mono" style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16 }}>Step 02</div>
         <h1 className="serif" style={{ fontSize: 64, letterSpacing: '-0.03em', margin: 0, lineHeight: 1, fontWeight: 400 }}>
           Point us at<br />your <em style={{ color: 'var(--walnut)' }}>games.</em>
         </h1>
@@ -194,7 +271,7 @@ function ImportStep({ username, onDone }: { username: string; onDone: () => void
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60 }}>
       <div>
-        <div className="mono" style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16 }}>Step 02</div>
+        <div className="mono" style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16 }}>Step 03</div>
         <h1 className="serif" style={{ fontSize: 56, letterSpacing: '-0.03em', margin: 0, lineHeight: 1.02, fontWeight: 400 }}>
           Pull the history.
         </h1>
@@ -266,7 +343,7 @@ function CadenceStep({ onDone }: { onDone: () => void }) {
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
-      <div className="mono" style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16 }}>Step 03</div>
+      <div className="mono" style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 16 }}>Step 04</div>
       <h1 className="serif" style={{ fontSize: 60, letterSpacing: '-0.03em', margin: 0, lineHeight: 1.02, fontWeight: 400 }}>
         Set your <em style={{ color: 'var(--walnut)' }}>cadence.</em>
       </h1>
@@ -307,7 +384,7 @@ function CadenceStep({ onDone }: { onDone: () => void }) {
 
 // ── Onboarding shell ──────────────────────────────────────────────────────
 
-const STEPS = ['Link account', 'Import', 'Cadence']
+const STEPS = ['Your name', 'Link account', 'Import', 'Cadence']
 
 export default function OnboardPage() {
   const router = useRouter()
@@ -342,12 +419,15 @@ export default function OnboardPage() {
 
       <div style={{ maxWidth: 1040, margin: '0 auto', padding: '72px 40px' }}>
         {step === 0 && (
-          <LinkStep onNext={(u) => { setUsername(u); setStep(1) }} />
+          <NameStep onDone={() => setStep(1)} />
         )}
         {step === 1 && (
-          <ImportStep username={username} onDone={() => setStep(2)} />
+          <LinkStep onNext={(u) => { setUsername(u); setStep(2) }} />
         )}
         {step === 2 && (
+          <ImportStep username={username} onDone={() => setStep(3)} />
+        )}
+        {step === 3 && (
           <CadenceStep onDone={() => router.push('/dashboard')} />
         )}
       </div>
