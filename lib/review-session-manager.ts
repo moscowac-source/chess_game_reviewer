@@ -42,6 +42,7 @@ type RawCard = {
   id: string
   fen: string
   correct_move: string
+  best_move?: string | null
   classification: CardClassification
   game_played_at?: string | null
   theme?: string | null
@@ -138,7 +139,7 @@ export async function buildReviewSession(
   const cards: SessionCard[] = filteredCardData.map((c) => ({
     cardId: c.id,
     fen: c.fen,
-    correctMove: c.correct_move,
+    correctMove: c.best_move ?? c.correct_move,
     classification: c.classification,
     isNew: !dueIds.has(c.id),
     theme: c.theme ?? null,
