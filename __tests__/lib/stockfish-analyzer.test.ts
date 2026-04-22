@@ -155,6 +155,16 @@ describe('analyzeGame', () => {
       expect(result[0].bestMove).toBe('e2e4')
     })
 
+    it('captures bestMoveSan (SAN-converted engine top move) — #86', async () => {
+      const positions: GamePosition[] = [{ fen: startFen, movePlayed: 'e4' }]
+      const result = await analyzeGame(
+        positions,
+        makeMockEngine([20, 10], ['e2e4']),
+      )
+      // UCI 'e2e4' on the starting position converts to SAN 'e4'
+      expect(result[0].bestMoveSan).toBe('e4')
+    })
+
     it('captures bestLine (PV) from engine output', async () => {
       const positions: GamePosition[] = [{ fen: startFen, movePlayed: 'e4' }]
       const result = await analyzeGame(

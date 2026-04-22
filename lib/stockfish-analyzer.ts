@@ -8,6 +8,11 @@ export interface PositionAnalysis {
   movePlayed: string
   cpl: number
   bestMove: string
+  /** Engine's top move in SAN (e.g. "Nxe5"). `bestMove` is UCI; card-generator
+   * persists this field as `best_move` so blunder/mistake cards can surface
+   * the engine's recommendation rather than the user's own losing move
+   * (see issue #86). */
+  bestMoveSan: string
   bestLine: string[]
   classification: CardClassification | null
 }
@@ -164,6 +169,7 @@ export async function analyzeGame(
       movePlayed,
       cpl,
       bestMove: before.bestMove,
+      bestMoveSan,
       bestLine: before.bestLine,
       classification,
     })
