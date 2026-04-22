@@ -272,6 +272,54 @@ describe('buildReviewSession', () => {
     })
   })
 
+  // -------------------------------------------------------------------------
+  // Issue #86: correctMove prefers best_move (engine's move) over correct_move
+  // (the user's played move, which is the wrong answer for blunder/mistake
+  // cards). Falls back to correct_move when best_move is null for cards
+  // inserted before the best_move column was populated.
+  // -------------------------------------------------------------------------
+  it('uses best_move as correctMove when present', async () => {
+    const cardStates: Row[] = [
+      { card_id: 'card-1', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+    ]
+    const cards: Row[] = [
+      { id: 'card-1', fen: 'fen1', correct_move: 'e5', best_move: 'Nf3', classification: 'blunder' },
+    ]
+    const { db } = makeMockDb(cardStates, cards)
+
+    const session = await buildReviewSession(USER, db as never)
+
+    expect(session.cards[0].correctMove).toBe('Nf3')
+  })
+
+  it('falls back to correct_move when best_move is null (legacy cards)', async () => {
+    const cardStates: Row[] = [
+      { card_id: 'card-1', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+    ]
+    const cards: Row[] = [
+      { id: 'card-1', fen: 'fen1', correct_move: 'e4', best_move: null, classification: 'blunder' },
+    ]
+    const { db } = makeMockDb(cardStates, cards)
+
+    const session = await buildReviewSession(USER, db as never)
+
+    expect(session.cards[0].correctMove).toBe('e4')
+  })
+
+  it('falls back to correct_move when best_move is absent (legacy cards)', async () => {
+    const cardStates: Row[] = [
+      { card_id: 'card-1', user_id: USER, state: 'review', due_date: PAST, stability: 5, difficulty: 3, review_count: 2 },
+    ]
+    const cards: Row[] = [
+      { id: 'card-1', fen: 'fen1', correct_move: 'e4', classification: 'blunder' },
+    ]
+    const { db } = makeMockDb(cardStates, cards)
+
+    const session = await buildReviewSession(USER, db as never)
+
+    expect(session.cards[0].correctMove).toBe('e4')
+  })
+
   // =========================================================================
   // Phase 17: Quiz Modes — Filtered Sessions
   // =========================================================================
