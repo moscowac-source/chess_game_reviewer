@@ -58,6 +58,7 @@ export async function generateCards(
     const rows = toInsert.map((p) => ({
       fen: p.fen,
       correct_move: p.movePlayed,
+      best_move: p.bestMoveSan,
       classification: p.classification,
       theme: classifyTheme(p.fen),
       note: null,

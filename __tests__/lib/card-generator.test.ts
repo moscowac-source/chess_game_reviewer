@@ -6,7 +6,9 @@ import { generateCards, classifyTheme } from '@/lib/card-generator'
 import type { PositionAnalysis } from '@/lib/stockfish-analyzer'
 
 // Builds a fake database that remembers what cards already exist
-// and records what gets inserted
+// and records what gets inserted. Mirrors the Supabase query-builder shape:
+// `.from(t).insert(rows).select('id')` — `.insert` returns a builder, not a
+// Promise, so the follow-up `.select('id')` works.
 function makeMockDb(existingFens: string[] = []) {
   const insertedRows: Record<string, unknown>[] = []
   const db = {
@@ -22,7 +24,13 @@ function makeMockDb(existingFens: string[] = []) {
       }),
       insert: (rows: Record<string, unknown>[]) => {
         insertedRows.push(...rows)
-        return Promise.resolve({ data: rows, error: null })
+        return {
+          select: (_cols: string) =>
+            Promise.resolve({
+              data: rows.map((_r, i) => ({ id: `generated-${i}` })),
+              error: null,
+            }),
+        }
       },
     }),
   }
@@ -33,8 +41,17 @@ function makePosition(
   fen: string,
   movePlayed: string,
   classification: PositionAnalysis['classification'],
+  bestMoveSan?: string,
 ): PositionAnalysis {
-  return { fen, movePlayed, cpl: 0, bestMove: movePlayed, bestLine: [], classification }
+  return {
+    fen,
+    movePlayed,
+    cpl: 0,
+    bestMove: movePlayed,
+    bestMoveSan: bestMoveSan ?? movePlayed,
+    bestLine: [],
+    classification,
+  }
 }
 
 const FEN_A = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1'
@@ -57,6 +74,19 @@ describe('generateCards', () => {
       fen: FEN_A,
       correct_move: 'e5',
       classification: 'blunder',
+    })
+  })
+
+  it("persists the engine's best move so blunder/mistake cards have a correct answer (#86)", async () => {
+    const { db, insertedRows } = makeMockDb()
+    // User played 'e5' (a blunder); engine's top move was 'Nf3'.
+    const positions = [makePosition(FEN_A, 'e5', 'blunder', 'Nf3')]
+
+    await generateCards(positions, db as never)
+
+    expect(insertedRows[0]).toMatchObject({
+      correct_move: 'e5',   // the move played (legacy, still stored)
+      best_move: 'Nf3',     // the move the engine recommended (used by review UI post-#86)
     })
   })
 
