@@ -28,6 +28,11 @@ export function ReviewBoard({ fen, correctMove, onResult, onWrongAttempt, boardO
   const [resolved, setResolved] = useState(false);
   const [hintSquare, setHintSquare] = useState<string | null>(null);
   const [revealArrow, setRevealArrow] = useState<Arrow | null>(null);
+  // When the correct move is played, we advance the rendered position to the
+  // post-move FEN so the piece visibly lands on the target square instead of
+  // snapping back to match the `fen` prop (issue #81). Wrong moves still snap
+  // back — the board stays on the puzzle position until resolved.
+  const [displayFen, setDisplayFen] = useState(fen);
 
   function onPieceDrop(sourceSquare: string, targetSquare: string): boolean {
     if (resolved) return false;
@@ -44,6 +49,7 @@ export function ReviewBoard({ fen, correctMove, onResult, onWrongAttempt, boardO
 
     if (move.san === correctMove) {
       setResolved(true);
+      setDisplayFen(chess.fen());
       if (attempts === 0) {
         onResult('firstTry');
       } else if (attempts === 1) {
@@ -76,7 +82,7 @@ export function ReviewBoard({ fen, correctMove, onResult, onWrongAttempt, boardO
 
   return (
     <Chessboard
-      position={fen}
+      position={displayFen}
       onPieceDrop={onPieceDrop}
       customSquareStyles={customSquareStyles}
       customArrows={customArrows}
