@@ -174,15 +174,28 @@ describe('analyzeGame', () => {
       expect(result[0].classification).toBe('blunder')
     })
 
-    it('classifies a great move (matches bestMove, not forced) correctly', async () => {
-      // Use a position with many legal moves; movePlayed matches bestMove; CPL = 0
-      const positions: GamePosition[] = [{ fen: startFen, movePlayed: 'e4' }]
+    it('classifies a great move (past opening, many alternatives, clean CPL)', async () => {
+      // Fullmove counter bumped to 15 so the move clears the great-guard
+      // (fullmove >= 12) added in issue #78. Piece layout intentionally equals
+      // the starting position to keep 20 legal moves and make 'e2e4' legal.
+      const midgameFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 15'
+      const positions: GamePosition[] = [{ fen: midgameFen, movePlayed: 'e4' }]
       // CPL = max(0, 20 + (-25)) = 0; bestMove for evalBefore = 'e2e4' = movePlayed
       const result = await analyzeGame(
         positions,
         makeMockEngine([20, -25], ['e2e4']),
       )
       expect(result[0].classification).toBe('great')
+    })
+
+    it('does NOT classify an early-opening matched move as great (issue #78)', async () => {
+      // Same setup as above but at fullmove 1 — should NOT be flagged as great.
+      const positions: GamePosition[] = [{ fen: startFen, movePlayed: 'e4' }]
+      const result = await analyzeGame(
+        positions,
+        makeMockEngine([20, -25], ['e2e4']),
+      )
+      expect(result[0].classification).toBeNull()
     })
 
     it('returns null classification for an unremarkable move', async () => {
