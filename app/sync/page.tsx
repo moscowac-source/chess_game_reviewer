@@ -12,12 +12,14 @@ const TONE_DOT: Record<StatusTone, string> = {
   success: 'var(--good)',
   error: 'var(--amber)',
   warn: 'var(--amber)',
+  info: 'var(--muted)',
 }
 
 const TONE_TEXT: Record<StatusTone, string> = {
   success: 'var(--muted)',
   error: 'var(--ink-2)',
   warn: 'var(--ink-2)',
+  info: 'var(--ink-2)',
 }
 
 export default function SyncPage() {
@@ -89,16 +91,23 @@ export default function SyncPage() {
       ? 'Never synced.'
       : lastStatus!.tone === 'success'
         ? 'Everything in order.'
-        : lastStatus!.tone === 'warn'
-          ? 'Last run did not finish.'
-          : 'Last run stopped with an error.'
+        : lastStatus!.tone === 'info'
+          ? 'Sync in progress.'
+          : lastStatus!.tone === 'warn'
+            ? 'Last run did not finish.'
+            : 'Last run stopped with an error.'
   const heroSubtitle = status
     ? lastStatus!.tone === 'success'
       ? `Last run succeeded ${lastRunDate} at ${lastRun}. Nightly job scheduled for 02:14 UTC.`
-      : `Last run on ${lastRunDate} at ${lastRun} — ${lastStatus!.label}.`
+      : lastStatus!.tone === 'info'
+        ? `Started ${lastRunDate} at ${lastRun}. Stockfish analysis runs ~30-40s per game — check back in a few minutes.`
+        : `Last run on ${lastRunDate} at ${lastRun} — ${lastStatus!.label}.`
     : 'Run a historical import from the onboarding page first.'
   const lastStatusStat = lastStatus
-    ? lastStatus.tone === 'success' ? 'OK' : lastStatus.tone === 'warn' ? 'Stuck' : 'Error'
+    ? lastStatus.tone === 'success' ? 'OK'
+      : lastStatus.tone === 'info' ? 'Running'
+      : lastStatus.tone === 'warn' ? 'Stuck'
+      : 'Error'
     : '—'
 
   const lastSuccessful = history.find((h) => syncRunStatusLabel(h).tone === 'success')
