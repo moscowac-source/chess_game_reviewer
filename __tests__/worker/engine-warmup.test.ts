@@ -20,14 +20,16 @@ describe('worker engine warm-up', () => {
     const engineFactory = jest.fn(async () => engine)
 
     const capturedFactories: Array<() => unknown> = []
-    const makeHandlerSpy = jest.fn((deps: { engineFactory?: () => unknown }) => {
+    const makeHandlerSpy = jest.fn((deps: { engineFactory?: () => unknown } = {}) => {
       if (deps.engineFactory) capturedFactories.push(deps.engineFactory)
-      return async () => ({})
+      return (async () => ({})) as unknown as ReturnType<
+        typeof import('@/lib/inngest/functions').makeSyncGamesHandler
+      >
     })
 
     await createWorkerFunctions({
       engineFactory,
-      makeHandler: makeHandlerSpy,
+      makeHandler: makeHandlerSpy as unknown as typeof import('@/lib/inngest/functions').makeSyncGamesHandler,
     })
 
     expect(capturedFactories.length).toBeGreaterThan(0)

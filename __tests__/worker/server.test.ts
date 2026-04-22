@@ -1,3 +1,4 @@
+import type { IncomingMessage, ServerResponse, RequestListener } from 'http'
 import { createRequestHandler } from '../../worker/src/server'
 
 describe('worker HTTP server', () => {
@@ -45,12 +46,12 @@ describe('worker HTTP server', () => {
   describe('/api/inngest', () => {
     it('delegates to the Inngest serve handler', async () => {
       const calls: Array<{ url: string | undefined; method: string | undefined }> = []
-      const fakeServe = (req: { url?: string; method?: string }, res: { statusCode: number; setHeader: (k: string, v: string) => void; end: (b?: string) => void }) => {
+      const fakeServe = ((req: { url?: string; method?: string }, res: { statusCode: number; setHeader: (k: string, v: string) => void; end: (b?: string) => void }) => {
         calls.push({ url: req.url, method: req.method })
         res.statusCode = 200
         res.setHeader('content-type', 'application/json')
         res.end('{"ok":true}')
-      }
+      }) as unknown as Parameters<typeof createRequestHandler>[0]['serveHandler']
 
       const handler = createRequestHandler({ functions: [], serveHandler: fakeServe })
       const { status, body } = await invoke(handler, 'POST', '/api/inngest')
@@ -65,32 +66,39 @@ describe('worker HTTP server', () => {
 
 // Minimal mock of http.IncomingMessage / ServerResponse for handler tests.
 function invoke(
-  handler: (req: FakeReq, res: FakeRes) => void | Promise<void>,
+  handler: RequestListener,
   method: string,
   url: string,
 ): Promise<{ status: number; headers: Record<string, string>; body: string }> {
-  const req: FakeReq = { method, url, headers: {} }
+  const req = { method, url, headers: {} } as unknown as IncomingMessage
   return new Promise((resolve) => {
-    const res: FakeRes = {
+    const captured: { statusCode: number; _headers: Record<string, string> } = {
       statusCode: 200,
       _headers: {},
-      setHeader(k, v) {
-        this._headers[k.toLowerCase()] = v
+    }
+    const res = {
+      get statusCode() {
+        return captured.statusCode
+      },
+      set statusCode(v: number) {
+        captured.statusCode = v
+      },
+      setHeader(k: string, v: string) {
+        captured._headers[k.toLowerCase()] = v
       },
       end(body?: string) {
-        resolve({ status: this.statusCode, headers: this._headers, body: body ?? '' })
+        resolve({ status: captured.statusCode, headers: captured._headers, body: body ?? '' })
       },
-    }
-    Promise.resolve(handler(req, res)).catch((err) => {
+    } as unknown as ServerResponse
+    try {
+      const result = handler(req, res) as unknown as Promise<unknown> | void
+      if (result && typeof (result as Promise<unknown>).catch === 'function') {
+        ;(result as Promise<unknown>).catch((err) => {
+          resolve({ status: 500, headers: {}, body: String(err) })
+        })
+      }
+    } catch (err) {
       resolve({ status: 500, headers: {}, body: String(err) })
-    })
+    }
   })
-}
-
-type FakeReq = { method?: string; url?: string; headers: Record<string, string> }
-type FakeRes = {
-  statusCode: number
-  _headers: Record<string, string>
-  setHeader: (k: string, v: string) => void
-  end: (body?: string) => void
 }

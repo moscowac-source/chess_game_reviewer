@@ -4,6 +4,8 @@ import { runSync, type SyncProgress, type StepRunner } from '@/lib/sync-orchestr
 import { createServiceClient } from '@/lib/supabase-service'
 import { makeSupabaseStepLogger } from '@/lib/sync-step-logger'
 import type { UciEngine } from '@/lib/stockfish-analyzer'
+import { fetchGames } from '@/lib/chess-com/client'
+import { makeSupabaseArchiveCache } from '@/lib/chess-com/archive-cache'
 import { markSyncFailed } from './terminal-state'
 
 export interface SyncGamesDeps {
@@ -47,6 +49,8 @@ export function makeSyncGamesHandler(deps: SyncGamesDeps = {}) {
         .eq('id', syncLogId)
     })
 
+    const archiveCache = makeSupabaseArchiveCache(db, userId)
+
     try {
       const result = await runSync(mode, {
         username,
@@ -54,6 +58,7 @@ export function makeSyncGamesHandler(deps: SyncGamesDeps = {}) {
         db,
         step,
         engineFactory: deps.engineFactory,
+        gamesFetcher: (u, m) => fetchGames(u, m, { archiveCache }),
         stepLogger: makeSupabaseStepLogger(db, syncLogId),
         onProgress: async (p: SyncProgress) => {
           await db
@@ -106,6 +111,11 @@ export function createSyncGamesFunction(deps: SyncGamesDeps = {}) {
       id: 'sync-games',
       name: 'Sync Chess.com games',
       triggers: [{ event: 'sync/run' }],
+      // Chess.com's public API is per-IP rate-limited. Cap outbound requests
+      // across every worker so one busy sync can't starve another user's of
+      // rate-limit budget. 3 is comfortably under chess.com's published
+      // limit and leaves headroom for retries.
+      concurrency: [{ limit: 3, key: '"chess-com"' }],
       // Runs after all retries are exhausted. Without this, a function that
       // times out or crashes mid-run leaves sync_log.stage stuck on whatever
       // the last onProgress write was (usually 'analyzing'), and the client
