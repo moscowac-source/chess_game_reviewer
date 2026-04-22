@@ -1,0 +1,44 @@
+# Fly.io config for the Chess Improver sync worker.
+# Deploy from repo root: `flyctl deploy --config worker/fly.toml --dockerfile worker/Dockerfile`
+# The app name must match an existing Fly app (create once with `flyctl apps create chess-improver-worker`).
+
+app = "chess-improver-worker"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3000"
+
+# Single always-on VM. Stockfish NNUE weights (~40MB) load once at boot and
+# stay resident — auto_stop_machines would force a cold start on every idle
+# period, which is exactly the failure mode we're escaping from.
+[[services]]
+  internal_port = 3000
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "60s"
+    method = "get"
+    path = "/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512

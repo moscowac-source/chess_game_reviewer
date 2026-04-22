@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { fetchGames } from '../../../lib/chess-com/client'
 
 const ARCHIVE_LIST_URL = 'https://api.chess.com/pub/player/testuser/games/archives'
@@ -9,17 +12,20 @@ const PGN_JAN = '[Event "Live Chess"]\n1. e4 e5 *'
 const PGN_FEB = '[Event "Live Chess"]\n1. d4 d5 *'
 const PGN_MAR = '[Event "Live Chess"]\n1. c4 c5 *'
 
-function makeFetchMock(responses: Record<string, { status: number; body: unknown }>) {
-  // fetchGames now passes a second arg (`{ headers: { User-Agent } }`) to every
-  // fetch call. Ignore it here and match by URL alone.
+function fakeResponse(status: number, body: unknown, headers: Record<string, string> = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: (k: string) => headers[k.toLowerCase()] ?? null },
+    json: async () => body,
+  }
+}
+
+function makeFetchMock(responses: Record<string, { status: number; body: unknown; headers?: Record<string, string> }>) {
   return jest.fn().mockImplementation((url: string) => {
     const entry = responses[url]
     if (!entry) throw new Error(`Unexpected fetch call: ${url}`)
-    return Promise.resolve({
-      ok: entry.status >= 200 && entry.status < 300,
-      status: entry.status,
-      json: async () => entry.body,
-    })
+    return Promise.resolve(fakeResponse(entry.status, entry.body, entry.headers))
   })
 }
 
@@ -38,7 +44,7 @@ describe('fetchGames — incremental mode', () => {
         status: 200,
         body: { games: [{ pgn: PGN_MAR }] },
       },
-    })
+    }) as unknown as typeof fetch
 
     const result = await fetchGames('testuser', 'incremental')
 
@@ -54,7 +60,7 @@ describe('fetchGames — incremental mode', () => {
         status: 200,
         body: { archives: [] },
       },
-    })
+    }) as unknown as typeof fetch
 
     const result = await fetchGames('testuser', 'incremental')
 
@@ -73,7 +79,7 @@ describe('fetchGames — historical mode', () => {
       [ARCHIVE_JAN]: { status: 200, body: { games: [{ pgn: PGN_JAN }] } },
       [ARCHIVE_FEB]: { status: 200, body: { games: [{ pgn: PGN_FEB }] } },
       [ARCHIVE_MAR]: { status: 200, body: { games: [{ pgn: PGN_MAR }] } },
-    })
+    }) as unknown as typeof fetch
 
     const result = await fetchGames('testuser', 'historical')
 
@@ -87,7 +93,7 @@ describe('fetchGames — historical mode', () => {
         status: 200,
         body: { archives: [] },
       },
-    })
+    }) as unknown as typeof fetch
 
     const result = await fetchGames('testuser', 'historical')
 
@@ -104,7 +110,7 @@ describe('fetchGames — historical mode', () => {
       },
       [ARCHIVE_JAN]: { status: 200, body: { games: [{ pgn: PGN_JAN }] } },
       [ARCHIVE_FEB]: { status: 200, body: { games: [{ pgn: PGN_FEB }] } },
-    })
+    }) as unknown as typeof fetch
 
     const promise = fetchGames('testuser', 'historical', { delayMs: 300 })
 
@@ -115,5 +121,41 @@ describe('fetchGames — historical mode', () => {
     expect(result).toEqual([PGN_JAN, PGN_FEB])
     expect(global.fetch).toHaveBeenCalledTimes(3)
     jest.useRealTimers()
+  })
+
+  it('uses the archive cache to send If-None-Match and skip months that return 304', async () => {
+    global.fetch = makeFetchMock({
+      [ARCHIVE_LIST_URL]: {
+        status: 200,
+        body: { archives: [ARCHIVE_JAN, ARCHIVE_FEB] },
+      },
+      [ARCHIVE_JAN]: { status: 304, body: {} }, // cached — skip
+      [ARCHIVE_FEB]: {
+        status: 200,
+        body: { games: [{ pgn: PGN_FEB }] },
+        headers: { etag: '"feb-new"' },
+      },
+    }) as unknown as typeof fetch
+
+    const archiveCache = {
+      get: jest.fn(async (_y: number, m: number) =>
+        m === 1 ? { etag: '"jan-v1"' } : null,
+      ),
+      set: jest.fn(async () => {}),
+    }
+
+    const result = await fetchGames('testuser', 'historical', { archiveCache })
+
+    expect(result).toEqual([PGN_FEB])
+    // Jan fetched with If-None-Match, got 304
+    const janCall = (global.fetch as unknown as jest.Mock).mock.calls.find(
+      (c) => c[0] === ARCHIVE_JAN,
+    )
+    expect(janCall?.[1].headers['If-None-Match']).toBe('"jan-v1"')
+    // Feb's new etag persisted
+    expect(archiveCache.set).toHaveBeenCalledWith(2024, 2, {
+      etag: '"feb-new"',
+      lastModified: null,
+    })
   })
 })
