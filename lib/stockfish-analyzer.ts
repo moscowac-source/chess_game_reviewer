@@ -109,6 +109,12 @@ function legalMoveCount(fen: string): number {
   return new Chess(fen).moves().length
 }
 
+function fullmoveFromFen(fen: string): number {
+  const parts = fen.trim().split(/\s+/)
+  const n = parseInt(parts[parts.length - 1] ?? '', 10)
+  return Number.isFinite(n) ? n : 1
+}
+
 function uciToSan(fen: string, uciMove: string): string | null {
   try {
     const chess = new Chess(fen)
@@ -157,7 +163,8 @@ export async function analyzeGame(
     const cpl = Math.max(0, before.score + after.score)
     const moveCount = legalMoveCount(fen)
     const bestMoveSan = uciToSan(fen, before.bestMove) ?? before.bestMove
-    const classification = classifyMove(cpl, movePlayed, bestMoveSan, moveCount)
+    const fullmove = fullmoveFromFen(fen)
+    const classification = classifyMove(cpl, movePlayed, bestMoveSan, moveCount, fullmove)
 
     results.push({
       fen,
