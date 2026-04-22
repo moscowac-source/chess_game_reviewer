@@ -22,7 +22,12 @@ RUN npm ci --ignore-scripts
 COPY lib ./lib
 COPY types ./types
 COPY worker ./worker
-RUN npx tsc --project worker/tsconfig.json
+# tsc by itself leaves the `@/lib/...` path aliases in the emitted JS and
+# Node's CJS resolver then blows up at boot with MODULE_NOT_FOUND (tsconfig
+# `paths` is type-check-only). tsc-alias rewrites them into real relative
+# paths so the worker can actually start.
+RUN npx tsc --project worker/tsconfig.json \
+  && npx tsc-alias --project worker/tsconfig.json
 
 FROM base AS runtime
 COPY --from=deps /app/node_modules ./node_modules
