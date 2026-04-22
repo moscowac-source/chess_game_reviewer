@@ -1,4 +1,17 @@
+import { fetch as undiciFetch } from 'undici'
+
 const CHESS_COM_BASE = 'https://api.chess.com/pub/player'
+
+// See lib/supabase-service.ts for why we can't rely on globalThis.fetch in
+// the worker process. Fall back to it only when the test environment
+// stubs `fetch` globally (jest's mocks patch globalThis, not undici).
+const httpFetch: typeof fetch = ((...args: Parameters<typeof fetch>) => {
+  const g = globalThis as { fetch?: typeof fetch }
+  if (typeof g.fetch === 'function' && g.fetch !== httpFetch) {
+    return g.fetch(...args)
+  }
+  return undiciFetch(...(args as Parameters<typeof undiciFetch>)) as unknown as ReturnType<typeof fetch>
+}) as typeof fetch
 
 // Chess.com's public API rejects/rate-limits requests without a User-Agent.
 // Identify the app and include a contact address per their guidelines.
@@ -59,7 +72,7 @@ export interface ArchiveCache {
 async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
   let attempt = 0
   while (true) {
-    const res = await fetch(url, init)
+    const res = await httpFetch(url, init)
     if (res.status !== 429) return res
     if (attempt >= RETRY_DELAYS_MS.length) return res
     await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]))
