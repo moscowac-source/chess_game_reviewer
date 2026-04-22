@@ -56,7 +56,10 @@ export interface AnalyzeOptions {
 }
 
 const DEFAULT_ENGINE_INIT_TIMEOUT_MS = 30_000
-const DEFAULT_EVAL_TIMEOUT_MS = 3_000
+// 500ms movetime + WASM overhead + occasional GC pause. 3s was too tight —
+// the very first eval after engine construction consistently exceeded it
+// on the Fly worker. 15s is generous; a healthy eval is ~600-800ms.
+const DEFAULT_EVAL_TIMEOUT_MS = 15_000
 
 function withTimeout<T>(label: string, ms: number, p: Promise<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
