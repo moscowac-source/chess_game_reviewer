@@ -7,7 +7,7 @@
 // still route jobs to Vercel — where Stockfish cold-loads freeze the event
 // loop (the exact bug we moved to a worker to fix, issue #67).
 
-import { vercelInngestFunctions } from '@/app/api/inngest/route'
+import { vercelInngestFunctions } from '@/lib/inngest/vercel-functions'
 
 describe('Vercel /api/inngest route', () => {
   it('no longer registers any sync-pipeline functions (delegated to the Fly.io worker)', () => {
