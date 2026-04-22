@@ -94,6 +94,20 @@ describe('ReviewBoard — Phase 15: Hint + Multi-Attempt Flow', () => {
     expect(capturedCustomSquareStyles[CORRECT_SOURCE]).toBeDefined();
   });
 
+  it('hint highlight uses an inset ring so it reads on dark squares (issue #82)', () => {
+    const onResult = jest.fn<void, [Outcome]>();
+    render(
+      <ReviewBoard fen={STARTING_FEN} correctMove={CORRECT_MOVE} onResult={onResult} />
+    );
+    act(() => { capturedOnPieceDrop(WRONG_SOURCE, WRONG_TARGET); });
+    const style = capturedCustomSquareStyles[CORRECT_SOURCE];
+    expect(style).toBeDefined();
+    // Must use boxShadow (an inset ring), not a translucent `background`
+    // fill that blends with the underlying square color.
+    expect(style.boxShadow).toMatch(/inset/);
+    expect(style.background).toBeUndefined();
+  });
+
   it("correct on attempt 2 emits 'afterHint'", () => {
     const onResult = jest.fn<void, [Outcome]>();
     render(
