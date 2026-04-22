@@ -14,7 +14,12 @@ export interface PositionAnalysis {
 
 export interface UciEngine {
   postMessage(command: string): void
-  onmessage: ((msg: string | { data: string }) => void) | null
+  // Emscripten-style listener API exposed by stockfish/src/*.js builds.
+  // Note: this build does NOT respect `engine.onmessage = ...` — setting
+  // that property silently does nothing, which is why early versions of
+  // the analyzer never got a response and every eval timed out.
+  addMessageListener(listener: (line: string) => void): void
+  removeMessageListener(listener: (line: string) => void): void
 }
 
 interface EvalResult {
@@ -56,7 +61,10 @@ export interface AnalyzeOptions {
 }
 
 const DEFAULT_ENGINE_INIT_TIMEOUT_MS = 30_000
-const DEFAULT_EVAL_TIMEOUT_MS = 3_000
+// 500ms movetime + WASM overhead + occasional GC pause. 3s was too tight —
+// the very first eval after engine construction consistently exceeded it
+// on the Fly worker. 15s is generous; a healthy eval is ~600-800ms.
+const DEFAULT_EVAL_TIMEOUT_MS = 15_000
 
 function withTimeout<T>(label: string, ms: number, p: Promise<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -72,8 +80,7 @@ async function evaluateFen(engine: UciEngine, fen: string): Promise<EvalResult> 
   return new Promise((resolve) => {
     let lastScore = 0
     let lastBestLine: string[] = []
-    engine.onmessage = (event) => {
-      const line = typeof event === 'string' ? event : event.data
+    const listener = (line: string) => {
       const score = parseInfoScore(line)
       if (score !== null) {
         lastScore = score
@@ -81,10 +88,12 @@ async function evaluateFen(engine: UciEngine, fen: string): Promise<EvalResult> 
         if (pv.length > 0) lastBestLine = pv
       }
       if (line.startsWith('bestmove')) {
+        engine.removeMessageListener(listener)
         const parts = line.split(/\s+/)
         resolve({ score: lastScore, bestMove: parts[1] ?? '', bestLine: lastBestLine })
       }
     }
+    engine.addMessageListener(listener)
     engine.postMessage(`position fen ${fen}`)
     engine.postMessage(`go movetime ${DEFAULT_MOVETIME_MS}`)
   })
@@ -164,16 +173,26 @@ export async function analyzeGame(
 }
 
 export async function createDefaultEngine(): Promise<UciEngine> {
-  // The Stockfish WASM build is an Emscripten module factory. The correct
-  // initialization is `Stockfish()` (returns a second factory) → `factory()`
-  // (returns a Promise that resolves to the actual engine with .postMessage).
-  // Our previous code skipped both calls and handed back the outer factory —
-  // which is why the sync kept logging "a.postMessage is not a function".
+  // In the single-threaded WASM build, engine.postMessage aliases
+  // postCustomMessage, which is a PThread-only no-op. UCI commands must be
+  // fed to onCustomMessage (see stockfish-nnue-16-single.js source). We wrap
+  // the raw engine so our UciEngine.postMessage routes to onCustomMessage.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Stockfish = require('stockfish/src/stockfish-nnue-16-single.js') as
-    | (() => () => Promise<UciEngine>)
-    | { default: () => () => Promise<UciEngine> }
+    | (() => () => Promise<RawEngine>)
+    | { default: () => () => Promise<RawEngine> }
   const outer = typeof Stockfish === 'function' ? Stockfish : Stockfish.default
   const factory = outer()
-  return await factory()
+  const raw = await factory()
+  return {
+    postMessage: (command: string) => raw.onCustomMessage(command),
+    addMessageListener: (l) => raw.addMessageListener(l),
+    removeMessageListener: (l) => raw.removeMessageListener(l),
+  }
+}
+
+interface RawEngine {
+  onCustomMessage(command: string): void
+  addMessageListener(listener: (line: string) => void): void
+  removeMessageListener(listener: (line: string) => void): void
 }

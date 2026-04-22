@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PositionAnalysis } from './stockfish-analyzer'
+import { defaultCardStateRow } from './fsrs-engine'
 
 export interface GenerateCardsResult {
   created: number
@@ -32,6 +33,7 @@ export async function generateCards(
   positions: PositionAnalysis[],
   db: SupabaseClient,
   gameId?: string | null,
+  userId?: string | null,
 ): Promise<GenerateCardsResult> {
   const classified = positions.filter((p) => p.classification !== null)
 
@@ -41,14 +43,17 @@ export async function generateCards(
 
   const { data: existing, error: selectError } = await db
     .from('cards')
-    .select('fen')
+    .select('id, fen')
     .in('fen', fens)
 
   if (selectError) throw selectError
 
-  const existingFens = new Set((existing ?? []).map((r: { fen: string }) => r.fen))
-  const toInsert = classified.filter((p) => !existingFens.has(p.fen))
+  const existingByFen = new Map<string, string>(
+    (existing ?? []).map((r: { id: string; fen: string }) => [r.fen, r.id]),
+  )
+  const toInsert = classified.filter((p) => !existingByFen.has(p.fen))
 
+  const insertedIds: string[] = []
   if (toInsert.length > 0) {
     const rows = toInsert.map((p) => ({
       fen: p.fen,
@@ -59,8 +64,27 @@ export async function generateCards(
       cpl: p.cpl,
       game_id: gameId ?? null,
     }))
-    const { error: insertError } = await db.from('cards').insert(rows)
+    const { data: newRows, error: insertError } = await db
+      .from('cards')
+      .insert(rows)
+      .select('id')
     if (insertError) throw insertError
+    for (const r of (newRows ?? []) as { id: string }[]) insertedIds.push(r.id)
+  }
+
+  // Card ownership is represented by card_state rows (one per user+card). The
+  // `cards` table is deduplicated by FEN across all users, so for every
+  // classified position we see we need to ensure this user has a state row —
+  // whether the card was just inserted or already existed from another user.
+  if (userId) {
+    const allCardIds = [...existingByFen.values(), ...insertedIds]
+    if (allCardIds.length > 0) {
+      const stateRows = allCardIds.map((cardId) => defaultCardStateRow(cardId, userId))
+      const { error: stateError } = await db
+        .from('card_state')
+        .upsert(stateRows, { onConflict: 'user_id,card_id', ignoreDuplicates: true })
+      if (stateError) throw stateError
+    }
   }
 
   return {

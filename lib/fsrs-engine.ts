@@ -33,13 +33,9 @@ export function mapOutcomeToRating(outcome: ReviewOutcome): ReviewRating {
   }
 }
 
-export async function initializeCardState(
-  cardId: string,
-  userId: string,
-  db: SupabaseClient,
-): Promise<void> {
+export function defaultCardStateRow(cardId: string, userId: string) {
   const empty = createEmptyCard()
-  await db.from('card_state').insert({
+  return {
     card_id: cardId,
     user_id: userId,
     stability: empty.stability,
@@ -47,7 +43,15 @@ export async function initializeCardState(
     due_date: empty.due.toISOString(),
     review_count: empty.reps,
     state: toDbState(empty.state),
-  })
+  }
+}
+
+export async function initializeCardState(
+  cardId: string,
+  userId: string,
+  db: SupabaseClient,
+): Promise<void> {
+  await db.from('card_state').insert(defaultCardStateRow(cardId, userId))
 }
 
 export async function recordReview(

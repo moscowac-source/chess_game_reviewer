@@ -4,9 +4,25 @@
 
 import { createWorkerFunctions } from '../../worker/src/functions'
 
+function makeFakeEngine() {
+  const listeners: Array<(line: string) => void> = []
+  return {
+    postMessage: jest.fn((cmd: string) => {
+      if (cmd.startsWith('go')) {
+        setTimeout(() => listeners.forEach((l) => l('bestmove e2e4')), 0)
+      }
+    }),
+    addMessageListener: jest.fn((l: (line: string) => void) => { listeners.push(l) }),
+    removeMessageListener: jest.fn((l: (line: string) => void) => {
+      const i = listeners.indexOf(l)
+      if (i >= 0) listeners.splice(i, 1)
+    }),
+  }
+}
+
 describe('worker engine warm-up', () => {
   it('createWorkerFunctions resolves the engineFactory exactly once regardless of how many functions are registered', async () => {
-    const engine = { postMessage: jest.fn(), onmessage: null }
+    const engine = makeFakeEngine()
     const engineFactory = jest.fn(async () => engine)
 
     const functions = await createWorkerFunctions({ engineFactory })
@@ -16,7 +32,7 @@ describe('worker engine warm-up', () => {
   })
 
   it('every registered function reuses the same warm engine instance', async () => {
-    const engine = { postMessage: jest.fn(), onmessage: null }
+    const engine = makeFakeEngine()
     const engineFactory = jest.fn(async () => engine)
 
     const capturedFactories: Array<() => unknown> = []

@@ -310,7 +310,7 @@ export async function runSync(
         const result = await runStep(
           stepLogger,
           { step: 'generate-cards', gameUrl, gameIndex },
-          () => generateCards(analyses, db, gameId),
+          () => generateCards(analyses, db, gameId, userId),
         )
 
         return { cardsCreated: result.created }

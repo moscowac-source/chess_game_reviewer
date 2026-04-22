@@ -45,7 +45,7 @@ describe('makeSyncGamesHandler — engine warm-up', () => {
   })
 
   it('forwards an injected engineFactory into runSync so the worker can share one warm engine across jobs', async () => {
-    const warmEngine = { postMessage: jest.fn(), onmessage: null }
+    const warmEngine = { postMessage: jest.fn(), addMessageListener: jest.fn(), removeMessageListener: jest.fn() }
     const engineFactory = jest.fn(() => warmEngine)
 
     const handler = makeSyncGamesHandler({ engineFactory })

@@ -9,53 +9,50 @@ import type { GamePosition } from '@/lib/game-parser'
 // Builds a mock engine that returns the given centipawn scores in sequence
 // (one per `go depth` call — one per FEN evaluated)
 // Optionally accepts bestMoves and pvLines arrays for Phase 7 field testing.
+function makeListenerEngine(
+  onGo: (emit: (line: string) => void) => void,
+): UciEngine {
+  const listeners: Array<(line: string) => void> = []
+  const engine: UciEngine = {
+    postMessage(command: string) {
+      if (command.startsWith('go')) {
+        setTimeout(() => {
+          onGo((line) => listeners.forEach((l) => l(line)))
+        }, 0)
+      }
+    },
+    addMessageListener(l) { listeners.push(l) },
+    removeMessageListener(l) {
+      const i = listeners.indexOf(l)
+      if (i >= 0) listeners.splice(i, 1)
+    },
+  }
+  return engine
+}
+
 function makeMockEngine(
   cpScores: number[],
   bestMoves?: string[],
   pvLines?: string[][],
 ): () => UciEngine {
   let callIndex = 0
-  return () => {
-    const engine: UciEngine = {
-      onmessage: null,
-      postMessage(command: string) {
-        if (command.startsWith('go')) {
-          const idx = callIndex++
-          const score = cpScores[idx] ?? 0
-          const bestMove = bestMoves?.[idx] ?? 'e2e4'
-          const pv = pvLines?.[idx] ?? ['e2e4', 'e7e5']
-          // Fire asynchronously to simulate engine latency
-          setTimeout(() => {
-            engine.onmessage?.(
-              `info depth 15 score cp ${score} pv ${pv.join(' ')}`,
-            )
-            engine.onmessage?.(`bestmove ${bestMove} ponder e7e5`)
-          }, 0)
-        }
-      },
-    }
-    return engine
-  }
+  return () => makeListenerEngine((emit) => {
+    const idx = callIndex++
+    const score = cpScores[idx] ?? 0
+    const bestMove = bestMoves?.[idx] ?? 'e2e4'
+    const pv = pvLines?.[idx] ?? ['e2e4', 'e7e5']
+    emit(`info depth 15 score cp ${score} pv ${pv.join(' ')}`)
+    emit(`bestmove ${bestMove} ponder e7e5`)
+  })
 }
 
-// Builds a mock engine that emits custom raw UCI info lines in sequence
 function makeMockEngineWithLines(infoLines: string[]): () => UciEngine {
   let callIndex = 0
-  return () => {
-    const engine: UciEngine = {
-      onmessage: null,
-      postMessage(command: string) {
-        if (command.startsWith('go')) {
-          const line = infoLines[callIndex++] ?? 'info depth 1 score cp 0'
-          setTimeout(() => {
-            engine.onmessage?.(line)
-            engine.onmessage?.('bestmove e2e4')
-          }, 0)
-        }
-      },
-    }
-    return engine
-  }
+  return () => makeListenerEngine((emit) => {
+    const line = infoLines[callIndex++] ?? 'info depth 1 score cp 0'
+    emit(line)
+    emit('bestmove e2e4')
+  })
 }
 
 describe('analyzeGame', () => {
@@ -213,8 +210,9 @@ describe('analyzeGame', () => {
 
     it('throws eval-timeout when the engine never emits bestmove', async () => {
       const hangingEngine: () => UciEngine = () => ({
-        onmessage: null,
         postMessage() { /* never respond */ },
+        addMessageListener() {},
+        removeMessageListener() {},
       })
       await expect(
         analyzeGame(
@@ -230,16 +228,21 @@ describe('analyzeGame', () => {
     it('uses movetime (not depth) so each eval has a hard per-position time cap', async () => {
       const commands: string[] = []
       const engine: () => UciEngine = () => {
+        const listeners: Array<(line: string) => void> = []
         const e: UciEngine = {
-          onmessage: null,
           postMessage(cmd: string) {
             commands.push(cmd)
             if (cmd.startsWith('go')) {
               setTimeout(() => {
-                e.onmessage?.('info depth 12 score cp 20 pv e2e4')
-                e.onmessage?.('bestmove e2e4')
+                listeners.forEach((l) => l('info depth 12 score cp 20 pv e2e4'))
+                listeners.forEach((l) => l('bestmove e2e4'))
               }, 0)
             }
+          },
+          addMessageListener(l) { listeners.push(l) },
+          removeMessageListener(l) {
+            const i = listeners.indexOf(l)
+            if (i >= 0) listeners.splice(i, 1)
           },
         }
         return e
