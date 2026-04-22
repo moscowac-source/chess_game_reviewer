@@ -163,7 +163,7 @@ export async function analyzeGame(
   return results
 }
 
-async function createDefaultEngine(): Promise<UciEngine> {
+export async function createDefaultEngine(): Promise<UciEngine> {
   // The Stockfish WASM build is an Emscripten module factory. The correct
   // initialization is `Stockfish()` (returns a second factory) → `factory()`
   // (returns a Promise that resolves to the actual engine with .postMessage).

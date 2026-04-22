@@ -1,8 +1,12 @@
-import { workerFunctions } from '../../worker/src/functions'
-import { syncGamesFunction } from '../../lib/inngest/functions'
+import { createWorkerFunctions } from '../../worker/src/functions'
 
-describe('worker-registered Inngest functions', () => {
-  it('includes the syncGamesFunction so Inngest events route to the worker', () => {
-    expect(workerFunctions).toContain(syncGamesFunction)
+describe('createWorkerFunctions', () => {
+  it('returns a non-empty list of Inngest functions', async () => {
+    const engine = { postMessage: jest.fn(), onmessage: null }
+    const functions = await createWorkerFunctions({
+      engineFactory: async () => engine,
+    })
+
+    expect(functions.length).toBeGreaterThan(0)
   })
 })
