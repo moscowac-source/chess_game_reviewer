@@ -16,11 +16,17 @@ export function createServiceClient(): SupabaseClient {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url) throw new Error('NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL is not set')
   if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set — required for background sync')
+  // Pin a fetch implementation at module-load time. supabase-js 2.49 will
+  // otherwise capture whatever `fetch` is in scope at *its* module-load,
+  // which on some Node runtimes is undefined and then throws
+  // "fetch is not a function" at first request.
+  const g = globalThis as { fetch?: typeof fetch }
+  if (typeof g.fetch !== 'function') {
+    throw new Error('global fetch is not available — Node 18+ required')
+  }
+  const boundFetch = g.fetch.bind(globalThis)
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
-    // Explicitly bind Node's global fetch. Some supabase-js versions fail to
-    // resolve it automatically in worker/non-Next runtimes and throw
-    // "fetch is not a function" at first request.
-    global: { fetch: (...args) => fetch(...args as Parameters<typeof fetch>) },
+    global: { fetch: boundFetch },
   })
 }
