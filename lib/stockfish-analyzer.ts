@@ -14,7 +14,12 @@ export interface PositionAnalysis {
 
 export interface UciEngine {
   postMessage(command: string): void
-  onmessage: ((msg: string | { data: string }) => void) | null
+  // Emscripten-style listener API exposed by stockfish/src/*.js builds.
+  // Note: this build does NOT respect `engine.onmessage = ...` — setting
+  // that property silently does nothing, which is why early versions of
+  // the analyzer never got a response and every eval timed out.
+  addMessageListener(listener: (line: string) => void): void
+  removeMessageListener(listener: (line: string) => void): void
 }
 
 interface EvalResult {
@@ -75,8 +80,7 @@ async function evaluateFen(engine: UciEngine, fen: string): Promise<EvalResult> 
   return new Promise((resolve) => {
     let lastScore = 0
     let lastBestLine: string[] = []
-    engine.onmessage = (event) => {
-      const line = typeof event === 'string' ? event : event.data
+    const listener = (line: string) => {
       const score = parseInfoScore(line)
       if (score !== null) {
         lastScore = score
@@ -84,10 +88,12 @@ async function evaluateFen(engine: UciEngine, fen: string): Promise<EvalResult> 
         if (pv.length > 0) lastBestLine = pv
       }
       if (line.startsWith('bestmove')) {
+        engine.removeMessageListener(listener)
         const parts = line.split(/\s+/)
         resolve({ score: lastScore, bestMove: parts[1] ?? '', bestLine: lastBestLine })
       }
     }
+    engine.addMessageListener(listener)
     engine.postMessage(`position fen ${fen}`)
     engine.postMessage(`go movetime ${DEFAULT_MOVETIME_MS}`)
   })

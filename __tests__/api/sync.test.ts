@@ -49,48 +49,35 @@ function seedDb(
   })
 }
 
-type MsgHandler = ((msg: string | { data: string }) => void) | null
-
-function makeBlunderEngineFactory() {
+function makeEngineFactory(scoreLine: string, bestmoveLine: string) {
   return () => {
-    let handler: MsgHandler = null
+    const listeners: Array<(line: string) => void> = []
     return {
-      set onmessage(fn: MsgHandler) {
-        handler = fn
-      },
       postMessage(cmd: string) {
         if (cmd.startsWith('go ')) {
-          handler?.('info depth 15 score cp 300 pv d2d4')
-          handler?.('bestmove d2d4')
+          listeners.forEach((l) => l(scoreLine))
+          listeners.forEach((l) => l(bestmoveLine))
         } else if (cmd === 'isready') {
-          handler?.('readyok')
+          listeners.forEach((l) => l('readyok'))
         } else if (cmd === 'uci') {
-          handler?.('uciok')
+          listeners.forEach((l) => l('uciok'))
         }
+      },
+      addMessageListener(l: (line: string) => void) { listeners.push(l) },
+      removeMessageListener(l: (line: string) => void) {
+        const i = listeners.indexOf(l)
+        if (i >= 0) listeners.splice(i, 1)
       },
     }
   }
 }
 
+function makeBlunderEngineFactory() {
+  return makeEngineFactory('info depth 15 score cp 300 pv d2d4', 'bestmove d2d4')
+}
+
 function makeNoOpEngineFactory() {
-  return () => {
-    let handler: MsgHandler = null
-    return {
-      set onmessage(fn: MsgHandler) {
-        handler = fn
-      },
-      postMessage(cmd: string) {
-        if (cmd.startsWith('go ')) {
-          handler?.('info depth 15 score cp 10 pv e2e4')
-          handler?.('bestmove e2e4')
-        } else if (cmd === 'isready') {
-          handler?.('readyok')
-        } else if (cmd === 'uci') {
-          handler?.('uciok')
-        }
-      },
-    }
-  }
+  return makeEngineFactory('info depth 15 score cp 10 pv e2e4', 'bestmove e2e4')
 }
 
 function makeRequest(mode: 'historical' | 'incremental') {

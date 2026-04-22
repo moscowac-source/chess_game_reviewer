@@ -9,14 +9,18 @@ import { createDefaultEngine, type UciEngine } from '../../lib/stockfish-analyze
  */
 async function warmupEval(engine: UciEngine): Promise<void> {
   await new Promise<void>((resolve) => {
-    const timeout = setTimeout(() => resolve(), 30_000) // hard cap — don't block boot forever
-    engine.onmessage = (event: string | { data: string }) => {
-      const line = typeof event === 'string' ? event : event.data
+    const timeout = setTimeout(() => {
+      engine.removeMessageListener(listener)
+      resolve()
+    }, 30_000) // hard cap — don't block boot forever
+    const listener = (line: string) => {
       if (line.startsWith('bestmove')) {
         clearTimeout(timeout)
+        engine.removeMessageListener(listener)
         resolve()
       }
     }
+    engine.addMessageListener(listener)
     engine.postMessage('position startpos')
     engine.postMessage('go movetime 500')
   })
