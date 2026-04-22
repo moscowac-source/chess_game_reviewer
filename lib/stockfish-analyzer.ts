@@ -173,16 +173,26 @@ export async function analyzeGame(
 }
 
 export async function createDefaultEngine(): Promise<UciEngine> {
-  // The Stockfish WASM build is an Emscripten module factory. The correct
-  // initialization is `Stockfish()` (returns a second factory) → `factory()`
-  // (returns a Promise that resolves to the actual engine with .postMessage).
-  // Our previous code skipped both calls and handed back the outer factory —
-  // which is why the sync kept logging "a.postMessage is not a function".
+  // In the single-threaded WASM build, engine.postMessage aliases
+  // postCustomMessage, which is a PThread-only no-op. UCI commands must be
+  // fed to onCustomMessage (see stockfish-nnue-16-single.js source). We wrap
+  // the raw engine so our UciEngine.postMessage routes to onCustomMessage.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Stockfish = require('stockfish/src/stockfish-nnue-16-single.js') as
-    | (() => () => Promise<UciEngine>)
-    | { default: () => () => Promise<UciEngine> }
+    | (() => () => Promise<RawEngine>)
+    | { default: () => () => Promise<RawEngine> }
   const outer = typeof Stockfish === 'function' ? Stockfish : Stockfish.default
   const factory = outer()
-  return await factory()
+  const raw = await factory()
+  return {
+    postMessage: (command: string) => raw.onCustomMessage(command),
+    addMessageListener: (l) => raw.addMessageListener(l),
+    removeMessageListener: (l) => raw.removeMessageListener(l),
+  }
+}
+
+interface RawEngine {
+  onCustomMessage(command: string): void
+  addMessageListener(listener: (line: string) => void): void
+  removeMessageListener(listener: (line: string) => void): void
 }
