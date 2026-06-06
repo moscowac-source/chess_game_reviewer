@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { inngest } from './client'
 import { runSync, type SyncProgress, type StepRunner } from '@/lib/sync-orchestrator'
-import { createServiceClient } from '@/lib/supabase-service'
+import { createServiceClient } from '@/lib/supabase/service'
 import { makeSupabaseStepLogger } from '@/lib/sync-step-logger'
 import type { UciEngine } from '@/lib/stockfish-analyzer'
 import { fetchGames } from '@/lib/chess-com/client'

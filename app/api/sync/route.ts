@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import { createClient, getSessionUserWithUsername } from '@/lib/supabase-server'
+import { createClient, getSessionUserWithUsername } from '@/lib/supabase/server'
 import { runSync, type SyncOptions, type SyncLogger, type StepLogger } from '@/lib/sync-orchestrator'
 import { makeSupabaseStepLogger } from '@/lib/sync-step-logger'
 import type { UciEngine } from '@/lib/stockfish-analyzer'
@@ -54,8 +53,8 @@ export async function POST(req: Request, deps: SyncDeps | NextRouteContext): Pro
   const mode: 'historical' | 'incremental' =
     body.mode === 'historical' ? 'historical' : 'incremental'
 
-  const activeDb = actualDeps.db ?? supabase
-  const authFn = actualDeps.authFn ?? (() => getSessionUserWithUsername(activeDb))
+  const activeDb = actualDeps.db ?? await createClient()
+  const authFn = actualDeps.authFn ?? (() => getSessionUserWithUsername(activeDb as SupabaseClient))
   const user = await authFn()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

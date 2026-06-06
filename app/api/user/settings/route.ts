@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { createClient, getSessionUser } from '@/lib/supabase-server'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { withAuthedRoute } from '@/lib/with-authed-route'
 import { apiError } from '@/lib/api-response'
+import type { TablesUpdate } from '@/lib/supabase/database.types'
 
 interface SettingsDeps {
   db?: SupabaseClient
@@ -57,7 +58,7 @@ export async function PATCH(req: Request, deps: SettingsDeps | NextRouteContext)
   }
 
   const raw = (body ?? {}) as Record<string, unknown>
-  const update: Record<string, unknown> = {}
+  const update: TablesUpdate<'users'> = {}
 
   if ('daily_new_limit' in raw) {
     const d = raw.daily_new_limit

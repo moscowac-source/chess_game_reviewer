@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { createClient, getSessionUserWithUsername } from '@/lib/supabase-server'
+import { createClient, getSessionUserWithUsername } from '@/lib/supabase/server'
 import { inngest as defaultInngest } from '@/lib/inngest/client'
 import { apiError } from '@/lib/api-response'
 

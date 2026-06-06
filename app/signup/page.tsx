@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Logo, Button, Field, Input, Divider } from '@/components/ui'
-import { createClient } from '@/lib/supabase-browser'
+import { createClient } from '@/lib/supabase/client'
 
 export default function SignupPage() {
   const router = useRouter()

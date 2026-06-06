@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { createClient, getSessionUser } from '@/lib/supabase-server'
+import { createClient, getSessionUser } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-response'
 
 export interface AuthedRouteDeps {
