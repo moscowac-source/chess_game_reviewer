@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode, InputHTMLAttributes } from 'react'
 import { useMe } from '@/hooks/dashboard'
-import { createClient } from '@/lib/supabase-browser'
+import { createClient } from '@/lib/supabase/client'
 
 // ── FEN utilities (no chess.js dependency needed for rendering) ────────────
 

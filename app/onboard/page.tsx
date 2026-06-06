@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Logo, Button, Field, Input } from '@/components/ui'
-import { createClient } from '@/lib/supabase-browser'
+import { createClient } from '@/lib/supabase/client'
 import { pollSyncUntilTerminal } from '@/lib/poll-sync-progress'
 
 const STAGE_LABEL: Record<string, string> = {
@@ -130,7 +130,7 @@ function LinkStep({ onNext }: { onNext: (username: string) => void }) {
         }
         const { error: saveError } = await supabase
           .from('users')
-          .upsert({ id: user.id, email: user.email, chess_com_username: username.trim() })
+          .upsert({ id: user.id, email: user.email!, chess_com_username: username.trim() })
         if (saveError) {
           setVerifyError(`Could not save username: ${saveError.message}`)
           setVerifying(false)
