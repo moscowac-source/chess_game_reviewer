@@ -93,7 +93,10 @@ Confirm none of these have changed behaviour:
 
 If the smoke test fails:
 
-1. `flyctl deploy --image <previous-sha>` to roll the worker back, OR
+1. Revert the offending commit on `main` — the `deploy-worker`
+   workflow will redeploy the worker from the prior code on push. For
+   an emergency override, run `flyctl deploy --image <previous-sha>`
+   locally. OR
 2. Re-register the Vercel `/api/inngest` URL in Inngest. This PR
    removed the Vercel-side function list, so restore
    `syncGamesFunction` in `app/api/inngest/route.ts` before redeploying

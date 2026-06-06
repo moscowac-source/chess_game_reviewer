@@ -43,9 +43,14 @@ flyctl deploy --config worker/fly.toml --dockerfile worker/Dockerfile
 
 ## Deploying updates
 
-```bash
-flyctl deploy --config worker/fly.toml --dockerfile worker/Dockerfile
-```
+Deploys are automatic. The `.github/workflows/deploy-worker.yml` workflow
+runs `flyctl deploy` on every push to `main` that touches `lib/**`,
+`worker/**`, `supabase/migrations/**`, `package.json`, or
+`package-lock.json`. It requires the `FLY_API_TOKEN` repo secret.
+
+To deploy on demand, trigger the workflow via the Actions tab
+(`workflow_dispatch`). Manual `flyctl deploy` from a laptop should only
+be used as a fallback when CI is unavailable.
 
 Once the worker is live, register its `/api/inngest` URL in the Inngest
 dashboard so events route to the worker instead of to Vercel.
