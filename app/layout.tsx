@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { AppShell } from '@/components/nav/AppShell'
 
 export const metadata: Metadata = {
   title: 'Pattern — the chess trainer that knows your games',
@@ -16,7 +17,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="paper">{children}</body>
+      <body className="paper">
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   )
 }
