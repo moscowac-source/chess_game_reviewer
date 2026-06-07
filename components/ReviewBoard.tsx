@@ -74,8 +74,11 @@ export function ReviewBoard({ fen, correctMove, onResult, onWrongAttempt, boardO
     return true;
   }
 
+  // Inset ring reads clearly on both light and dark squares — a translucent
+  // fill blended with the underlying square color (the old approach) was
+  // near-invisible on dark squares (issue #82).
   const customSquareStyles: Record<string, React.CSSProperties> = hintSquare
-    ? { [hintSquare]: { background: 'rgba(212,165,116,0.55)' } }
+    ? { [hintSquare]: { boxShadow: 'inset 0 0 0 4px var(--amber)' } }
     : {};
 
   const customArrows: Arrow[] = revealArrow ? [revealArrow] : [];
@@ -86,6 +89,7 @@ export function ReviewBoard({ fen, correctMove, onResult, onWrongAttempt, boardO
       onPieceDrop={onPieceDrop}
       customSquareStyles={customSquareStyles}
       customArrows={customArrows}
+      customArrowColor="#8b6f47"
       boardOrientation={boardOrientation}
       customBoardStyle={{
         boxShadow: '0 30px 60px -30px rgba(26,26,26,0.35)',
