@@ -6,7 +6,7 @@ const mockSignOut = jest.fn()
 const mockPush = jest.fn()
 const mockRefresh = jest.fn()
 
-jest.mock('@/lib/supabase-browser', () => ({
+jest.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     auth: { signOut: mockSignOut },
   }),

@@ -85,7 +85,7 @@ describe('runSync', () => {
 
     mockedParse.mockReturnValue([{ fen: 'FEN', movePlayed: 'e4' }])
     mockedAnalyze.mockResolvedValue([
-      { fen: 'FEN', movePlayed: 'e4', cpl: 300, bestMove: 'e5', bestLine: ['e5'], classification: 'blunder' },
+      { fen: 'FEN', movePlayed: 'e4', cpl: 300, bestMove: 'e5', bestMoveSan: 'e5', bestLine: ['e5'], classification: 'blunder' },
     ])
     mockedGenerate.mockResolvedValue({ created: 1, skipped: 0 })
 
@@ -106,7 +106,7 @@ describe('runSync', () => {
       white: EMPTY_HEADERS.white,
     })
     const insertedGameId = inserted.games[0].id as string
-    expect(mockedGenerate).toHaveBeenCalledWith(expect.any(Array), db, insertedGameId)
+    expect(mockedGenerate).toHaveBeenCalledWith(expect.any(Array), db, insertedGameId, USER_ID)
     expect(calls.completed[0].result).toEqual({ gamesProcessed: 1, cardsCreated: 1, errors: [] })
   })
 
@@ -129,7 +129,7 @@ describe('runSync', () => {
 
     expect(result.gamesProcessed).toBe(1)
     expect(inserted.games ?? []).toHaveLength(0)
-    expect(mockedGenerate).toHaveBeenCalledWith(expect.any(Array), db, existingGameId)
+    expect(mockedGenerate).toHaveBeenCalledWith(expect.any(Array), db, existingGameId, USER_ID)
   })
 
   it('tolerates a single failing game: counts only successful games and captures the error message', async () => {
@@ -249,7 +249,7 @@ describe('runSync', () => {
 
       mockedParse.mockReturnValue([{ fen: 'FEN', movePlayed: 'e4' }])
       mockedAnalyze.mockResolvedValue([
-        { fen: 'FEN', movePlayed: 'e4', cpl: 300, bestMove: 'e5', bestLine: ['e5'], classification: 'blunder' },
+        { fen: 'FEN', movePlayed: 'e4', cpl: 300, bestMove: 'e5', bestMoveSan: 'e5', bestLine: ['e5'], classification: 'blunder' },
       ])
       mockedGenerate.mockResolvedValue({ created: 1, skipped: 0 })
 

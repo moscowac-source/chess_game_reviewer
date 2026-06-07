@@ -65,7 +65,7 @@ jest.mock('@/components/ReviewBoard', () => ({
 
 // ── Mock fetch ────────────────────────────────────────────────────────────────
 
-function mockFetch(sessionCards: typeof CARD_A[], singleCard?: typeof CARD_A) {
+function mockFetch(sessionCards: typeof CARD_A[], singleCard?: Record<string, unknown>) {
   const mock = jest.fn().mockImplementation((url: string, init?: RequestInit) => {
     if (typeof url === 'string' && url.startsWith('/api/review/session')) {
       return Promise.resolve({
