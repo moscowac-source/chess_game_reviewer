@@ -68,11 +68,21 @@ export function ReviewBoard({ fen, correctMove, onResult, onWrongAttempt, boardO
     return true;
   }
 
+  // Hint uses an inset ring so the warm-tan outline reads on BOTH light and
+  // dark squares — a 55%-alpha background fill (issue #82) washed out on dark.
+  // The ring sits ON the square rather than tinting it, so contrast is square-
+  // color-independent.
   const customSquareStyles: Record<string, React.CSSProperties> = hintSquare
-    ? { [hintSquare]: { background: 'rgba(212,165,116,0.55)' } }
+    ? { [hintSquare]: { boxShadow: 'inset 0 0 0 4px rgba(212,165,116,0.95)' } }
     : {};
 
-  const customArrows: Arrow[] = revealArrow ? [revealArrow] : [];
+  // react-chessboard's Arrow type expects [from, to, color?]; we pass the warm
+  // accent so the reveal arrow matches the hint palette instead of the default
+  // bright red.
+  const HINT_ACCENT = 'rgba(212,165,116,0.95)';
+  const customArrows: Arrow[] = revealArrow
+    ? [[revealArrow[0], revealArrow[1], HINT_ACCENT] as Arrow]
+    : [];
 
   return (
     <Chessboard

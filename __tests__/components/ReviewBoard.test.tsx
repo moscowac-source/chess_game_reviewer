@@ -125,8 +125,13 @@ describe('ReviewBoard — Phase 15: Hint + Multi-Attempt Flow', () => {
     act(() => { capturedOnPieceDrop(WRONG_SOURCE, WRONG_TARGET); });
     expect(onResult).toHaveBeenCalledTimes(1);
     expect(onResult).toHaveBeenCalledWith('failed');
-    // Arrow should show the correct move
-    expect(capturedCustomArrows).toContainEqual([CORRECT_SOURCE, CORRECT_TARGET] as Arrow);
+    // Arrow should show the correct move, styled in the warm hint palette
+    // (issue #82) rather than react-chessboard's default red.
+    expect(capturedCustomArrows).toHaveLength(1);
+    const [from, to, color] = capturedCustomArrows[0];
+    expect(from).toBe(CORRECT_SOURCE);
+    expect(to).toBe(CORRECT_TARGET);
+    expect(color).toMatch(/212,165,116/); // warm tan accent
   });
 
   it('board ignores moves after resolution', () => {
