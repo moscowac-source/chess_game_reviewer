@@ -185,12 +185,15 @@ describe('analyzeGame', () => {
     })
 
     it('classifies a great move (matches bestMove, not forced) correctly', async () => {
-      // Use a position with many legal moves; movePlayed matches bestMove; CPL = 0
-      const positions: GamePosition[] = [{ fen: startFen, movePlayed: 'e4' }]
-      // CPL = max(0, 20 + (-25)) = 0; bestMove for evalBefore = 'e2e4' = movePlayed
+      // Position past the opening-book window (fullmove 12) — issue #78
+      // suppresses 'great' inside the opening, so testing the analyzer wire-
+      // through requires a middlegame FEN.
+      const midgameFen = 'r1bqkb1r/pp2pppp/2n2n2/2pp4/3P4/2N1PN2/PP3PPP/R1BQKB1R w KQkq - 0 12'
+      const positions: GamePosition[] = [{ fen: midgameFen, movePlayed: 'dxc5' }]
+      // CPL = max(0, 20 + (-25)) = 0; engine's UCI bestMove (d4c5) → SAN dxc5 = movePlayed
       const result = await analyzeGame(
         positions,
-        makeMockEngine([20, -25], ['e2e4']),
+        makeMockEngine([20, -25], ['d4c5']),
       )
       expect(result[0].classification).toBe('great')
     })

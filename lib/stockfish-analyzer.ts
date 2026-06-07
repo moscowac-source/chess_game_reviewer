@@ -110,6 +110,15 @@ function fenAfterMove(fen: string, san: string): string {
   return chess.fen()
 }
 
+/** FEN's 6th field is the fullmove counter (1-indexed). Fall back to 1 if
+ *  the FEN is malformed — better to treat the position as opening-window
+ *  than to mis-classify on a parse error. */
+function parseFullmove(fen: string): number {
+  const parts = fen.split(/\s+/)
+  const n = parseInt(parts[5] ?? '1', 10)
+  return Number.isFinite(n) && n > 0 ? n : 1
+}
+
 function legalMoveCount(fen: string): number {
   return new Chess(fen).moves().length
 }
@@ -162,7 +171,11 @@ export async function analyzeGame(
     const cpl = Math.max(0, before.score + after.score)
     const moveCount = legalMoveCount(fen)
     const bestMoveSan = uciToSan(fen, before.bestMove) ?? before.bestMove
-    const classification = classifyMove(cpl, movePlayed, bestMoveSan, moveCount)
+    // FEN's 6th space-delimited field is the fullmove counter (starts at 1,
+    // increments after Black's move). classifier uses it to suppress 'great'
+    // inside the opening-book window — see issue #78.
+    const fullmove = parseFullmove(fen)
+    const classification = classifyMove(cpl, movePlayed, bestMoveSan, moveCount, fullmove)
 
     results.push({
       fen,
