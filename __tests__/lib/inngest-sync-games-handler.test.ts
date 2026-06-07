@@ -17,7 +17,7 @@ function makeChainableDb(): ChainableDb {
 
 const fakeDb = makeChainableDb()
 
-jest.mock('@/lib/supabase-service', () => ({
+jest.mock('@/lib/supabase/service', () => ({
   createServiceClient: jest.fn(() => fakeDb),
 }))
 

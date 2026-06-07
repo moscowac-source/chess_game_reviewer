@@ -197,6 +197,7 @@ describe('generateCards', () => {
       movePlayed: 'e5',
       cpl: 310,
       bestMove: 'Nf3',
+      bestMoveSan: 'Nf3',
       bestLine: ['Nf3'],
       classification: 'blunder',
     }

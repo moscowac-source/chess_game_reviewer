@@ -315,7 +315,7 @@ describe('analyzeGame', () => {
     it('scenario 3: five-move sequence produces five independent CPL results', async () => {
       // Each position uses arbitrary FEN (game parser provides real ones; here we use start FEN repeated)
       const fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
-      const positions: GamePosition[] = Array.from({ length: 5 }, (_, i) => ({
+      const positions: GamePosition[] = Array.from({ length: 5 }, (_) => ({
         fen,
         movePlayed: 'e4',
       }))

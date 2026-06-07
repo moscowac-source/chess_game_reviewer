@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient, getSessionUserWithUsername } from '@/lib/supabase/server'
 import { runSync, type SyncOptions, type SyncLogger, type StepLogger } from '@/lib/sync-orchestrator'
-import { makeSupabaseStepLogger } from '@/lib/sync-step-logger'
+import { makeSupabaseStepLogger } from '@/lib/sync-step-logger' // eslint-disable-line @typescript-eslint/no-unused-vars
 import type { UciEngine } from '@/lib/stockfish-analyzer'
 
 interface AuthUser {
