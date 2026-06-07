@@ -9,6 +9,7 @@ type Outcome = 'firstTry' | 'afterHint' | 'afterAttempts' | 'failed';
 let capturedOnPieceDrop: (src: string, tgt: string) => boolean = () => false;
 let capturedCustomSquareStyles: Record<string, React.CSSProperties> = {};
 let capturedCustomArrows: Arrow[] = [];
+let capturedPosition: string = '';
 
 jest.mock('react-chessboard', () => ({
   Chessboard: ({
@@ -25,6 +26,7 @@ jest.mock('react-chessboard', () => ({
     capturedOnPieceDrop = onPieceDrop;
     capturedCustomSquareStyles = customSquareStyles ?? {};
     capturedCustomArrows = customArrows ?? [];
+    capturedPosition = position;
     return <div data-testid="chessboard" data-position={position} />;
   },
 }));
@@ -127,6 +129,29 @@ describe('ReviewBoard — Phase 15: Hint + Multi-Attempt Flow', () => {
     expect(onResult).toHaveBeenCalledWith('failed');
     // Arrow should show the correct move
     expect(capturedCustomArrows).toContainEqual([CORRECT_SOURCE, CORRECT_TARGET] as Arrow);
+  });
+
+  it('correct move lands the piece on the target square (issue #81)', () => {
+    const onResult = jest.fn<void, [Outcome]>();
+    render(
+      <ReviewBoard fen={STARTING_FEN} correctMove={CORRECT_MOVE} onResult={onResult} />
+    );
+    // Before the move: board shows the puzzle position.
+    expect(capturedPosition).toBe(STARTING_FEN);
+    act(() => { capturedOnPieceDrop(CORRECT_SOURCE, CORRECT_TARGET); });
+    // After the correct move: board advances to post-move FEN (pawn on e4).
+    expect(capturedPosition).not.toBe(STARTING_FEN);
+    expect(capturedPosition).toContain('4P3'); // pawn on e4 in rank 4
+  });
+
+  it('wrong move leaves the board on the original puzzle position', () => {
+    const onResult = jest.fn<void, [Outcome]>();
+    render(
+      <ReviewBoard fen={STARTING_FEN} correctMove={CORRECT_MOVE} onResult={onResult} />
+    );
+    act(() => { capturedOnPieceDrop(WRONG_SOURCE, WRONG_TARGET); });
+    // Board stays on the puzzle FEN so the piece snaps back.
+    expect(capturedPosition).toBe(STARTING_FEN);
   });
 
   it('board ignores moves after resolution', () => {
