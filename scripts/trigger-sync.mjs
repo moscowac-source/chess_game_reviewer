@@ -17,7 +17,7 @@ const inngest = new Inngest({ id: 'chess-improver', eventKey: env.INNGEST_EVENT_
 
 const USER_ID = 'b004b496-d42d-489e-ae39-cb754a2ff093'
 const USERNAME = 'Catalyst030119'
-const MODE = 'historical'
+const MODE = 'incremental'
 
 const { data: row, error } = await supabase
   .from('sync_log')

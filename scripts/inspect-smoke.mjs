@@ -8,27 +8,47 @@ const env = Object.fromEntries(
   })
 )
 const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+const USER = 'b004b496-d42d-489e-ae39-cb754a2ff093'
 
-const users = await supabase.from('users').select('id, chess_com_username, email, created_at').order('created_at', { ascending: false })
-console.log('Users:', users.error ? `ERROR: ${JSON.stringify(users.error)}` : '')
-for (const u of users.data ?? []) console.log(' ', JSON.stringify(u))
+// Count games
+const games = await supabase.from('games').select('id', { count: 'exact', head: true }).eq('user_id', USER)
+// card_state is per-user, so count via user_id directly
+const csTotal = await supabase.from('card_state').select('card_id', { count: 'exact', head: true }).eq('user_id', USER)
 
-console.log('\n--- per-user totals ---')
-for (const u of users.data ?? []) {
-  const gameRows = await supabase.from('games').select('id, played_at').eq('user_id', u.id)
-  const gameIds = (gameRows.data ?? []).map(g => g.id)
-  let cards = 0, withBest = 0
-  if (gameIds.length) {
-    const c = await supabase.from('cards').select('id, best_move').in('game_id', gameIds)
-    cards = c.data?.length ?? 0
-    withBest = (c.data ?? []).filter(r => r.best_move != null).length
+// Cards: join via card_state to avoid 800-element IN()
+const userCardIds = await supabase.from('card_state').select('card_id').eq('user_id', USER).limit(50000)
+const cardIds = (userCardIds.data ?? []).map(r => r.card_id)
+
+let cardsTotal = 0, withBest = 0
+const byClass = {}
+// Page through in chunks of 200
+for (let i = 0; i < cardIds.length; i += 200) {
+  const chunk = cardIds.slice(i, i + 200)
+  const c = await supabase.from('cards').select('id, classification, correct_move, best_move').in('id', chunk)
+  for (const r of c.data ?? []) {
+    cardsTotal++
+    if (r.best_move != null) withBest++
+    const k = r.classification ?? 'null'
+    byClass[k] = byClass[k] ?? { total: 0, withBest: 0 }
+    byClass[k].total++
+    if (r.best_move != null) byClass[k].withBest++
   }
-  const cs = await supabase.from('card_state').select('card_id', { count: 'exact', head: true }).eq('user_id', u.id)
-  const arch = await supabase.from('chess_com_archives').select('archive_month', { count: 'exact', head: true }).eq('user_id', u.id)
-  console.log(`  ${u.chess_com_username ?? u.email} (${u.id.slice(0, 8)}): games=${gameIds.length}, cards=${cards}, with_best_move=${withBest}, card_state=${cs.count}, archives=${arch.count}`)
 }
 
-console.log('\n--- recent sync_log (last 5 across all users) ---')
-const sl = await supabase.from('sync_log').select('id, user_id, status, started_at, completed_at, games_synced, cards_generated').order('started_at', { ascending: false }).limit(5)
-if (sl.error) console.log('ERROR:', sl.error)
+console.log(`games=${games.count}, cards=${cardsTotal}, with_best_move=${withBest}, card_state=${csTotal.count}`)
+console.log('By classification:')
+for (const [k, v] of Object.entries(byClass)) console.log(`  ${k}: total=${v.total}, with_best_move=${v.withBest}`)
+
+// Most recent sync_log
+const sl = await supabase.from('sync_log').select('id, stage, started_at, completed_at, games_processed, games_total, cards_created, error').eq('user_id', USER).order('started_at', { ascending: false }).limit(3)
+console.log('\nRecent sync_log:')
 for (const s of sl.data ?? []) console.log(' ', JSON.stringify(s))
+
+// Most recent 5 cards (any classification)
+const recent = await supabase
+  .from('cards')
+  .select('id, classification, correct_move, best_move, created_at')
+  .order('created_at', { ascending: false })
+  .limit(5)
+console.log('\n5 most-recent cards:')
+for (const r of recent.data ?? []) console.log(' ', JSON.stringify(r))
