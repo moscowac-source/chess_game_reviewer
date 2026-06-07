@@ -1,9 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Chessboard } from 'react-chessboard';
 import type { Arrow, Square } from 'react-chessboard/dist/chessboard/types';
 import { Chess } from 'chess.js';
 
 export type Outcome = 'firstTry' | 'afterHint' | 'afterAttempts' | 'failed';
+
+// How long the post-move position stays on the board before we hand control
+// back to the parent. Long enough that the user registers their piece landing
+// on the target square (issue #81); short enough not to feel laggy.
+const POST_MOVE_HOLD_MS = 700;
 
 interface ReviewBoardProps {
   fen: string;
@@ -23,11 +28,57 @@ function getCorrectMoveSquares(
   return match ? { from: match.from, to: match.to } : null;
 }
 
+function fenAfterMove(fen: string, san: string): string | null {
+  try {
+    const chess = new Chess(fen);
+    if (!chess.move(san)) return null;
+    return chess.fen();
+  } catch {
+    return null;
+  }
+}
+
 export function ReviewBoard({ fen, correctMove, onResult, onWrongAttempt, boardOrientation = 'white' }: ReviewBoardProps) {
   const [attempts, setAttempts] = useState(0);
   const [resolved, setResolved] = useState(false);
   const [hintSquare, setHintSquare] = useState<string | null>(null);
   const [revealArrow, setRevealArrow] = useState<Arrow | null>(null);
+  // displayedFen lets the board reflect the *post-move* position after a
+  // correct answer instead of snapping back to the starting FEN (issue #81).
+  // For wrong moves it stays on the original fen so react-chessboard does its
+  // normal snap-back, which is the correct UX there.
+  const [displayedFen, setDisplayedFen] = useState(fen);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reset internal state whenever the parent advances to a new card. Without
+  // this, displayedFen would stick on the previous card's post-move position
+  // and `resolved` would block input on the new card.
+  useEffect(() => {
+    setAttempts(0);
+    setResolved(false);
+    setHintSquare(null);
+    setRevealArrow(null);
+    setDisplayedFen(fen);
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  }, [fen]);
+
+  // Clean up any pending hold timer if the component unmounts mid-hold —
+  // otherwise React fires onResult against a stale parent.
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    };
+  }, []);
+
+  function scheduleResult(outcome: Outcome) {
+    holdTimerRef.current = setTimeout(() => {
+      holdTimerRef.current = null;
+      onResult(outcome);
+    }, POST_MOVE_HOLD_MS);
+  }
 
   function onPieceDrop(sourceSquare: string, targetSquare: string): boolean {
     if (resolved) return false;
@@ -44,12 +95,16 @@ export function ReviewBoard({ fen, correctMove, onResult, onWrongAttempt, boardO
 
     if (move.san === correctMove) {
       setResolved(true);
+      // Show the piece on its destination square for the hold window before
+      // the parent advances to the next card.
+      const after = fenAfterMove(fen, correctMove);
+      if (after) setDisplayedFen(after);
       if (attempts === 0) {
-        onResult('firstTry');
+        scheduleResult('firstTry');
       } else if (attempts === 1) {
-        onResult('afterHint');
+        scheduleResult('afterHint');
       } else {
-        onResult('afterAttempts');
+        scheduleResult('afterAttempts');
       }
     } else {
       setAttempts(newAttempts);
@@ -61,7 +116,7 @@ export function ReviewBoard({ fen, correctMove, onResult, onWrongAttempt, boardO
         const squares = getCorrectMoveSquares(fen, correctMove);
         if (squares) setRevealArrow([squares.from as Square, squares.to as Square]);
         setResolved(true);
-        onResult('failed');
+        scheduleResult('failed');
       }
     }
 
@@ -86,7 +141,7 @@ export function ReviewBoard({ fen, correctMove, onResult, onWrongAttempt, boardO
 
   return (
     <Chessboard
-      position={fen}
+      position={displayedFen}
       onPieceDrop={onPieceDrop}
       customSquareStyles={customSquareStyles}
       customArrows={customArrows}
