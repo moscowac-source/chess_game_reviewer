@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Logo, Button, Field, Input } from '@/components/ui'
-import { createClient } from '@/lib/supabase/client'
 import { pollSyncUntilTerminal } from '@/lib/poll-sync-progress'
 
 const STAGE_LABEL: Record<string, string> = {
@@ -99,17 +98,12 @@ function LinkStep({ onNext }: { onNext: (username: string) => void }) {
   const [verified, setVerified] = useState(false)
   const [verifyError, setVerifyError] = useState<string | null>(null)
 
-  // Pre-fill from DB if already set
+  // Pre-fill from the existing profile if a username is already linked.
   useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) return
-      const { data: userData } = await supabase
-        .from('users')
-        .select('chess_com_username')
-        .eq('id', data.user.id)
-        .single()
-      if (userData?.chess_com_username) setUsername(userData.chess_com_username)
+    fetch('/api/me').then(async (r) => {
+      if (!r.ok) return
+      const data = await r.json().catch(() => null)
+      if (data?.username) setUsername(data.username)
     })
   }, [])
 
@@ -118,30 +112,22 @@ function LinkStep({ onNext }: { onNext: (username: string) => void }) {
     setVerifying(true)
     setVerifyError(null)
     try {
-      const res = await fetch(`https://api.chess.com/pub/player/${username.trim().toLowerCase()}`)
+      // One server-side call validates the handle, checks it exists on
+      // Chess.com, and saves it — no browser-to-Supabase or browser-to-chess.com
+      // traffic (#48).
+      const res = await fetch('/api/chess-account', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim() }),
+      })
       if (res.ok) {
-        // Save to DB
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-          setVerifyError('Not signed in. Please log in again and retry.')
-          setVerifying(false)
-          return
-        }
-        const { error: saveError } = await supabase
-          .from('users')
-          .upsert({ id: user.id, email: user.email!, chess_com_username: username.trim() })
-        if (saveError) {
-          setVerifyError(`Could not save username: ${saveError.message}`)
-          setVerifying(false)
-          return
-        }
         setVerified(true)
       } else {
-        setVerifyError('Username not found on Chess.com. Check the spelling and try again.')
+        const body = await res.json().catch(() => ({}))
+        setVerifyError(body.error ?? `Could not verify username (${res.status}).`)
       }
     } catch {
-      setVerifyError('Could not reach Chess.com. Check your connection.')
+      setVerifyError('Network error — please try again.')
     }
     setVerifying(false)
   }
