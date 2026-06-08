@@ -40,6 +40,10 @@ export type SyncStep =
   | 'fetch-archives-end'
   | 'sync-start'
   | 'sync-end'
+  // Terminal row written by markSyncFailed when a run crashes/times out before
+  // runSync can emit its own `sync-end`, so the audit timeline closes cleanly
+  // for failed runs too (#70).
+  | 'sync-failed'
   | 'fetch'
   | 'parse-headers'
   | 'parse-positions'
