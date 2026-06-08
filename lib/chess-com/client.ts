@@ -80,6 +80,24 @@ async function fetchWithRetry(url: string, init: RequestInit): Promise<Response>
   }
 }
 
+/**
+ * Check whether a Chess.com player profile exists. Hits the public player
+ * endpoint server-side so the browser never talks to chess.com directly
+ * (onboarding's account-link step, #48). Returns true on 200, false on 404;
+ * any other status (rate limit, 5xx, etc.) throws ChessComApiError so the
+ * caller can distinguish "not found" from "couldn't check".
+ */
+export async function checkPlayerExists(username: string): Promise<boolean> {
+  const url = `${CHESS_COM_BASE}/${username.toLowerCase()}`
+  const response = await fetchWithRetry(url, { headers: chessComHeaders() })
+
+  if (response.status === 404) return false
+  if (!response.ok) {
+    throw new ChessComApiError(`Chess.com API error: ${response.status}`, response.status)
+  }
+  return true
+}
+
 export async function fetchArchiveList(username: string): Promise<string[]> {
   // Chess.com's public API is case-sensitive — 'Catalyst030119' returns 301,
   // 'catalyst030119' returns 200. Normalize at the boundary.
