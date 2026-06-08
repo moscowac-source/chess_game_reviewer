@@ -55,6 +55,41 @@ describe('useFetchJson', () => {
     expect(result.current.error?.message).toBe('network down')
   })
 
+  // #69: a 401 during a session-cookie refresh is transient — retry once.
+  it('retries once on a 401 and resolves when the retry succeeds', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce(failResponse(401))
+      .mockResolvedValueOnce(okResponse({ n: 7 }))
+    global.fetch = fetchMock
+    const { result } = renderHook(() => useFetchJson('/x', identity))
+    await waitFor(() => expect(result.current.data).toEqual({ n: 7 }))
+    expect(result.current.error).toBeNull()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('gives up and sets error after a second consecutive 401', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce(failResponse(401))
+      .mockResolvedValueOnce(failResponse(401))
+    global.fetch = fetchMock
+    const { result } = renderHook(() => useFetchJson('/x', identity))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.error).not.toBeNull()
+    expect(result.current.data).toBeNull()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not retry on a non-401 failure', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(failResponse(500))
+    global.fetch = fetchMock
+    const { result } = renderHook(() => useFetchJson('/x', identity))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.error).not.toBeNull()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('refetch triggers another request', async () => {
     const fetchMock = jest
       .fn()

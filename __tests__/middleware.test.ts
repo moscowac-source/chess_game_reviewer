@@ -91,3 +91,24 @@ it('allows unauthenticated access to /api/inngest (Inngest webhook)', async () =
 
   expect(res.status).not.toBe(307)
 })
+
+// #69: API routes guard themselves and return a 401 JSON. The middleware must
+// not redirect them to the HTML login page — during a cookie-refresh race that
+// would hand the client an unparseable login page instead of a clean 401.
+it('does not redirect an unauthenticated /api request to /login', async () => {
+  mockGetUser.mockResolvedValue({ data: { user: null } })
+
+  const req = new NextRequest('http://localhost/api/sync/status')
+  const res = await middleware(req)
+
+  expect(res.status).not.toBe(307)
+})
+
+it('passes an authenticated /api request through', async () => {
+  mockGetUser.mockResolvedValue({ data: { user: { id: 'user-123' } } })
+
+  const req = new NextRequest('http://localhost/api/sync/history')
+  const res = await middleware(req)
+
+  expect(res.status).not.toBe(307)
+})

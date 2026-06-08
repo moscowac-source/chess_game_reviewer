@@ -9,6 +9,12 @@ export interface FetchResult<T> {
   refetch: () => void
 }
 
+// A 401 right after the session cookie is refreshed is usually transient: a
+// concurrent request rotated the auth cookie and this one briefly raced with
+// it. The refreshed cookie lands within a moment, so a single short-delayed
+// retry recovers cleanly instead of flashing an unauthenticated state (#69).
+const UNAUTH_RETRY_DELAY_MS = 300
+
 export function useFetchJson<T>(
   url: string,
   validate: (raw: unknown) => T | null,
@@ -23,11 +29,20 @@ export function useFetchJson<T>(
     setLoading(true)
     setError(null)
 
-    fetch(url)
-      .then(async (r) => {
+    async function fetchJson(): Promise<unknown> {
+      for (let attempt = 0; ; attempt++) {
+        const r = await fetch(url)
+        if (r.status === 401 && attempt === 0) {
+          await new Promise((resolve) => setTimeout(resolve, UNAUTH_RETRY_DELAY_MS))
+          if (cancelled) return null
+          continue
+        }
         if (!r.ok) throw new Error(`Request failed (${r.status})`)
         return r.json()
-      })
+      }
+    }
+
+    fetchJson()
       .then((raw) => {
         if (cancelled) return
         const parsed = validate(raw)
