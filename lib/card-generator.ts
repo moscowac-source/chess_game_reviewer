@@ -55,6 +55,13 @@ export async function generateCards(
 
   const insertedIds: string[] = []
   if (toInsert.length > 0) {
+    // Cards must belong to a game. Refuse to insert with a null game_id —
+    // orphaned cards can't be traced back to the game they came from and were
+    // a silent failure mode of the sync pipeline (#68). The orchestrator
+    // always supplies a real id; this guard protects every other caller too.
+    if (gameId === null || gameId === undefined) {
+      throw new Error('generateCards: cannot insert cards without a game_id')
+    }
     const rows = toInsert.map((p) => ({
       fen: p.fen,
       correct_move: p.movePlayed,
@@ -63,7 +70,7 @@ export async function generateCards(
       theme: classifyTheme(p.fen),
       note: null,
       cpl: p.cpl,
-      game_id: gameId ?? null,
+      game_id: gameId,
     }))
     const { data: newRows, error: insertError } = await db
       .from('cards')

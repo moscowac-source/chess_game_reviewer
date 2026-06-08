@@ -41,7 +41,7 @@ const mockedRunSync = runSync as jest.MockedFunction<typeof runSync>
 describe('makeSyncGamesHandler — engine warm-up', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    mockedRunSync.mockResolvedValue({ gamesProcessed: 1, cardsCreated: 0, errors: [] })
+    mockedRunSync.mockResolvedValue({ gamesProcessed: 1, gamesFailed: 0, cardsCreated: 0, errors: [] })
   })
 
   it('forwards an injected engineFactory into runSync so the worker can share one warm engine across jobs', async () => {
