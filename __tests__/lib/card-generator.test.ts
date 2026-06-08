@@ -65,7 +65,7 @@ describe('generateCards', () => {
     const { db, insertedRows } = makeMockDb()
     const positions = [makePosition(FEN_A, 'e5', 'blunder')]
 
-    const result = await generateCards(positions, db as never)
+    const result = await generateCards(positions, db as never, 'game-1')
 
     expect(result.created).toBe(1)
     expect(result.skipped).toBe(0)
@@ -82,7 +82,7 @@ describe('generateCards', () => {
     // User played 'e5' (a blunder); engine's top move was 'Nf3'.
     const positions = [makePosition(FEN_A, 'e5', 'blunder', 'Nf3')]
 
-    await generateCards(positions, db as never)
+    await generateCards(positions, db as never, 'game-1')
 
     expect(insertedRows[0]).toMatchObject({
       correct_move: 'e5',   // the move played (legacy, still stored)
@@ -114,7 +114,7 @@ describe('generateCards', () => {
       makePosition(FEN_B, 'Nf3', 'mistake'),
     ]
 
-    const result = await generateCards(positions, db as never)
+    const result = await generateCards(positions, db as never, 'game-1')
 
     expect(result.created).toBe(2)
     expect(result.skipped).toBe(0)
@@ -147,7 +147,7 @@ describe('generateCards', () => {
       makePosition(ENDGAME_FEN, 'Kd6', 'mistake'),
     ]
 
-    await generateCards(positions, db as never)
+    await generateCards(positions, db as never, 'game-1')
 
     expect(insertedRows).toHaveLength(2)
     expect(insertedRows.find((r) => r.fen === OPENING_FEN)).toMatchObject({
@@ -162,7 +162,7 @@ describe('generateCards', () => {
     const { db, insertedRows } = makeMockDb()
     const positions = [makePosition(FEN_A, 'e5', 'blunder')]
 
-    await generateCards(positions, db as never)
+    await generateCards(positions, db as never, 'game-1')
 
     expect(insertedRows).toHaveLength(1)
     expect(insertedRows[0]).toHaveProperty('note', null)
@@ -179,14 +179,25 @@ describe('generateCards', () => {
     expect(insertedRows[0]).toMatchObject({ game_id: 'game-abc' })
   })
 
-  it('writes game_id as null on each new card when no gameId is supplied', async () => {
+  // Issue #68: cards must never be inserted with a null game_id. Inserting a
+  // new card without a gameId now throws rather than orphaning the card.
+  it('throws rather than inserting a card with a null game_id', async () => {
     const { db, insertedRows } = makeMockDb()
     const positions = [makePosition(FEN_A, 'e5', 'blunder')]
 
-    await generateCards(positions, db as never)
+    await expect(generateCards(positions, db as never)).rejects.toThrow(/game_id/)
+    expect(insertedRows).toHaveLength(0)
+  })
 
-    expect(insertedRows).toHaveLength(1)
-    expect(insertedRows[0]).toHaveProperty('game_id', null)
+  it('does not require a gameId when there are no new cards to insert', async () => {
+    const { db, insertedRows } = makeMockDb([FEN_A])
+    const positions = [makePosition(FEN_A, 'e5', 'blunder')]
+
+    const result = await generateCards(positions, db as never)
+
+    expect(result.created).toBe(0)
+    expect(result.skipped).toBe(1)
+    expect(insertedRows).toHaveLength(0)
   })
 
   // Issue #29: the cpl value from the PositionAnalysis is persisted on the card
@@ -202,7 +213,7 @@ describe('generateCards', () => {
       classification: 'blunder',
     }
 
-    await generateCards([position], db as never)
+    await generateCards([position], db as never, 'game-1')
 
     expect(insertedRows).toHaveLength(1)
     expect(insertedRows[0]).toMatchObject({ cpl: 310 })
@@ -220,7 +231,7 @@ describe('generateCards', () => {
       makePosition(FEN_C, 'Nc6', 'great'),
     ]
 
-    const result = await generateCards(positions, db as never)
+    const result = await generateCards(positions, db as never, 'game-1')
 
     expect(result.created).toBe(2)
     expect(result.skipped).toBe(1)

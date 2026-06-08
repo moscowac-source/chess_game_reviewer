@@ -41,7 +41,7 @@ const mockedRunSync = runSync as jest.MockedFunction<typeof runSync>
 describe('syncGamesHandler', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    mockedRunSync.mockResolvedValue({ gamesProcessed: 3, cardsCreated: 5, errors: [] })
+    mockedRunSync.mockResolvedValue({ gamesProcessed: 3, gamesFailed: 0, cardsCreated: 5, errors: [] })
   })
 
   it('forwards the Inngest step object into runSync so per-game work is memoized across retries', async () => {

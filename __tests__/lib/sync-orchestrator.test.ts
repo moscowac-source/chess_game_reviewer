@@ -52,9 +52,12 @@ function makeLoggerSpy(): { logger: SyncLogger; calls: { started: number; comple
 
 beforeEach(() => {
   jest.clearAllMocks()
-  // Sensible defaults — tests override as needed
+  // Sensible defaults — tests override as needed. parseGame returns one
+  // position by default so the happy path produces a non-empty game; a game
+  // that parses to zero positions is now treated as a failure (#68), so tests
+  // that want that case override mockedParse explicitly.
   mockedHeaders.mockReturnValue({ ...EMPTY_HEADERS })
-  mockedParse.mockReturnValue([])
+  mockedParse.mockReturnValue([{ fen: 'FEN', movePlayed: 'e4' }])
   mockedAnalyze.mockResolvedValue([])
   mockedGenerate.mockResolvedValue({ created: 0, skipped: 0 })
 })
@@ -72,10 +75,10 @@ describe('runSync', () => {
       syncLogger: logger,
     })
 
-    expect(result).toEqual({ gamesProcessed: 0, cardsCreated: 0, errors: [] })
+    expect(result).toEqual({ gamesProcessed: 0, gamesFailed: 0, cardsCreated: 0, errors: [] })
     expect(calls.started).toBe(1)
     expect(calls.completed).toEqual([
-      { id: 'log-id-1', result: { gamesProcessed: 0, cardsCreated: 0, errors: [] } },
+      { id: 'log-id-1', result: { gamesProcessed: 0, gamesFailed: 0, cardsCreated: 0, errors: [] } },
     ])
   })
 
@@ -97,7 +100,7 @@ describe('runSync', () => {
       syncLogger: logger,
     })
 
-    expect(result).toEqual({ gamesProcessed: 1, cardsCreated: 1, errors: [] })
+    expect(result).toEqual({ gamesProcessed: 1, gamesFailed: 0, cardsCreated: 1, errors: [] })
     expect(inserted.games).toHaveLength(1)
     expect(inserted.games[0]).toMatchObject({
       user_id: USER_ID,
@@ -107,7 +110,7 @@ describe('runSync', () => {
     })
     const insertedGameId = inserted.games[0].id as string
     expect(mockedGenerate).toHaveBeenCalledWith(expect.any(Array), db, insertedGameId, USER_ID)
-    expect(calls.completed[0].result).toEqual({ gamesProcessed: 1, cardsCreated: 1, errors: [] })
+    expect(calls.completed[0].result).toEqual({ gamesProcessed: 1, gamesFailed: 0, cardsCreated: 1, errors: [] })
   })
 
   it('short-circuits when a games row with the same url already exists: reuses the existing id and does not insert', async () => {
@@ -153,10 +156,12 @@ describe('runSync', () => {
     })
 
     expect(result.gamesProcessed).toBe(1)
+    expect(result.gamesFailed).toBe(1)
     expect(result.cardsCreated).toBe(2)
     expect(result.errors).toEqual(['bad pgn'])
     expect(calls.completed[0].result).toEqual({
       gamesProcessed: 1,
+      gamesFailed: 1,
       cardsCreated: 2,
       errors: ['bad pgn'],
     })
@@ -179,7 +184,7 @@ describe('runSync', () => {
     expect(calls.started).toBe(1)
     expect(calls.completed).toHaveLength(1)
     expect(calls.completed[0].id).toBe('log-id-1')
-    expect(calls.completed[0].result).toEqual({ gamesProcessed: 1, cardsCreated: 5, errors: [] })
+    expect(calls.completed[0].result).toEqual({ gamesProcessed: 1, gamesFailed: 0, cardsCreated: 5, errors: [] })
   })
 
   it('invokes onProgress with stage + counts: fetching → analyzing → per-game → complete', async () => {
@@ -359,6 +364,98 @@ describe('runSync', () => {
   })
 
   // -------------------------------------------------------------------------
+  // #68 — silent bail paths must surface as failures / skips, not clean 'ok'
+  // -------------------------------------------------------------------------
+
+  describe('silent-bail surfacing (#68)', () => {
+    function makeStepSpy(): { logger: StepLogger; events: SyncStepEvent[] } {
+      const events: SyncStepEvent[] = []
+      const logger: StepLogger = async (e) => { events.push(e) }
+      return { logger, events }
+    }
+
+    it('treats a game that parses to zero positions as a failure, not a clean success', async () => {
+      const { db } = makeMockDb()
+      const { logger, events } = makeStepSpy()
+
+      mockedParse.mockReturnValue([]) // empty position list — broken game
+
+      const result = await runSync('historical', {
+        username: 'player',
+        userId: USER_ID,
+        db,
+        gamesFetcher: async () => ['<pgn>'],
+        stepLogger: logger,
+      })
+
+      expect(result.gamesProcessed).toBe(0)
+      expect(result.gamesFailed).toBe(1)
+      expect(result.errors).toHaveLength(1)
+
+      // parse-positions must NOT log a green 'ok' for a zero-position game.
+      const parsePositions = events.find((e) => e.step === 'parse-positions')!
+      expect(parsePositions.status).toBe('error')
+
+      // The summary row reflects the failure rather than looking clean.
+      const endRow = events.find((e) => e.step === 'sync-end')!
+      expect(endRow.status).toBe('error')
+      expect(endRow.details).toMatchObject({ gamesProcessed: 0, gamesFailed: 1, errorCount: 1 })
+    })
+
+    it("logs generate-cards as 'skipped' (not 'ok') when a game yields no cards", async () => {
+      const { db } = makeMockDb()
+      const { logger, events } = makeStepSpy()
+
+      mockedParse.mockReturnValue([{ fen: 'FEN', movePlayed: 'e4' }])
+      mockedGenerate.mockResolvedValue({ created: 0, skipped: 0 })
+
+      const result = await runSync('historical', {
+        username: 'player',
+        userId: USER_ID,
+        db,
+        gamesFetcher: async () => ['<pgn>'],
+        stepLogger: logger,
+      })
+
+      // The game still counts as processed (it was analyzed; just no cards).
+      expect(result.gamesProcessed).toBe(1)
+      expect(result.gamesFailed).toBe(0)
+
+      const generate = events.find((e) => e.step === 'generate-cards')!
+      expect(generate.status).toBe('skipped')
+      expect(generate.details).toMatchObject({ created: 0, skipped: 0 })
+    })
+
+    it("marks the summary row 'error' when some games fail even though others succeed", async () => {
+      const { db } = makeMockDb()
+      const { logger, events } = makeStepSpy()
+
+      let call = 0
+      mockedParse.mockImplementation(() => {
+        call++
+        if (call === 1) return [] // first game broken
+        return [{ fen: 'FEN', movePlayed: 'e4' }]
+      })
+      mockedGenerate.mockResolvedValue({ created: 1, skipped: 0 })
+
+      const result = await runSync('historical', {
+        username: 'player',
+        userId: USER_ID,
+        db,
+        gamesFetcher: async () => ['<bad>', '<good>'],
+        stepLogger: logger,
+      })
+
+      expect(result.gamesProcessed).toBe(1)
+      expect(result.gamesFailed).toBe(1)
+
+      const endRow = events.find((e) => e.step === 'sync-end')!
+      expect(endRow.status).toBe('error')
+      expect(endRow.details).toMatchObject({ gamesProcessed: 1, gamesFailed: 1, errorCount: 1 })
+    })
+  })
+
+  // -------------------------------------------------------------------------
   // step runner — Inngest-style memoization of expensive phases
   // -------------------------------------------------------------------------
 
@@ -469,7 +566,7 @@ describe('runSync', () => {
       // both game steps were attempted (neither propagated out of step.run)
       expect(calls.filter((c) => c.id === 'process-game-0')).toHaveLength(1)
       expect(calls.filter((c) => c.id === 'process-game-1')).toHaveLength(1)
-      expect(result).toEqual({ gamesProcessed: 1, cardsCreated: 2, errors: ['bad pgn'] })
+      expect(result).toEqual({ gamesProcessed: 1, gamesFailed: 1, cardsCreated: 2, errors: ['bad pgn'] })
     })
 
     it('returns memoized fetch-archives output on replay without re-invoking the fetcher', async () => {

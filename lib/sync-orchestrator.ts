@@ -7,6 +7,13 @@ import { generateCards } from './card-generator'
 export interface SyncResult {
   gamesProcessed: number
   cardsCreated: number
+  /**
+   * Count of games that hit a per-game error (broken PGN, empty position list,
+   * analyzer crash, etc.). Mirrors `errors.length` but is surfaced as an
+   * explicit top-line counter so a sync can never look clean (`gamesProcessed`
+   * fine, no visible problem) while the step log is full of failures. See #68.
+   */
+  gamesFailed: number
   errors: string[]
 }
 
@@ -138,7 +145,7 @@ async function ensureGameRow(
   userId: string,
   pgn: string,
   headers: PgnHeaders,
-): Promise<string | null> {
+): Promise<string> {
   if (headers.url) {
     const { data: existing } = await db
       .from('games')
@@ -166,30 +173,52 @@ async function ensureGameRow(
     .single()
 
   if (error) throw error
-  return inserted?.id ?? null
+  // A successful insert must yield an id. If it somehow doesn't, fail loudly
+  // here rather than returning null and letting downstream card generation
+  // insert cards with a null game_id (the silent bail in #68).
+  if (!inserted?.id) {
+    throw new Error('ensureGameRow: insert succeeded but returned no game id')
+  }
+  return inserted.id
 }
 
 /**
  * Runs `fn`, emits exactly one step-log row describing the outcome, and
  * returns the value (or rethrows the original error). Timing is measured in
  * whole milliseconds.
+ *
+ * `zeroWork` lets a step report that it ran cleanly but produced nothing
+ * useful (e.g. card generation found zero card-worthy positions). When it
+ * returns true the row is logged as `skipped` rather than `ok`, so the audit
+ * log never shows a green `ok` for a step that did no work (#68).
+ * `detailsFromResult` lets the row carry result-derived counts in `details`.
  */
 async function runStep<T>(
   stepLogger: StepLogger | undefined,
-  meta: { step: SyncStep; gameUrl?: string | null; gameIndex?: number | null; detailsOnOk?: Record<string, unknown> },
+  meta: {
+    step: SyncStep
+    gameUrl?: string | null
+    gameIndex?: number | null
+    detailsOnOk?: Record<string, unknown>
+    zeroWork?: (value: T) => boolean
+    detailsFromResult?: (value: T) => Record<string, unknown> | null
+  },
   fn: () => Promise<T> | T,
 ): Promise<T> {
   const start = Date.now()
   try {
     const value = await fn()
     if (stepLogger) {
+      const isZeroWork = meta.zeroWork ? meta.zeroWork(value) : false
+      const fromResult = meta.detailsFromResult ? meta.detailsFromResult(value) : null
+      const merged = { ...(meta.detailsOnOk ?? {}), ...(fromResult ?? {}) }
       await stepLogger({
         step: meta.step,
-        status: 'ok',
+        status: isZeroWork ? 'skipped' : 'ok',
         gameUrl: meta.gameUrl ?? null,
         gameIndex: meta.gameIndex ?? null,
         durationMs: Date.now() - start,
-        details: meta.detailsOnOk ?? null,
+        details: Object.keys(merged).length > 0 ? merged : null,
       })
     }
     return value
@@ -258,6 +287,7 @@ export async function runSync(
   })
 
   let gamesProcessed = 0
+  let gamesFailed = 0
   let cardsCreated = 0
   const errors: string[] = []
 
@@ -286,8 +316,17 @@ export async function runSync(
 
         const positions = await runStep(
           stepLogger,
-          { step: 'parse-positions', gameUrl, gameIndex },
-          () => parseGame(pgn),
+          { step: 'parse-positions', gameIndex, gameUrl, detailsFromResult: (p) => ({ positions: p.length }) },
+          () => {
+            const parsed = parseGame(pgn)
+            // A game that parses to zero positions is broken (malformed PGN or
+            // a parser bug) — fail it loudly instead of letting empty analysis
+            // and zero cards flow through as a clean success (#68).
+            if (parsed.length === 0) {
+              throw new Error('Game produced no analyzable positions (empty or unparseable PGN)')
+            }
+            return parsed
+          },
         )
 
         const gameId = await runStep(
@@ -309,7 +348,16 @@ export async function runSync(
 
         const result = await runStep(
           stepLogger,
-          { step: 'generate-cards', gameUrl, gameIndex },
+          {
+            step: 'generate-cards',
+            gameUrl,
+            gameIndex,
+            // A game can legitimately yield no cards (no blunders/mistakes), but
+            // that step did no work — log it as `skipped`, not `ok`, so the
+            // audit log stays honest (#68).
+            zeroWork: (r) => r.created === 0 && r.skipped === 0,
+            detailsFromResult: (r) => ({ created: r.created, skipped: r.skipped }),
+          },
           () => generateCards(analyses, db, gameId, userId),
         )
 
@@ -324,6 +372,7 @@ export async function runSync(
 
     if (gameResult.error !== undefined) {
       errors.push(gameResult.error)
+      gamesFailed++
     } else {
       gamesProcessed++
       cardsCreated += gameResult.cardsCreated ?? 0
@@ -337,7 +386,7 @@ export async function runSync(
     })
   }
 
-  const syncResult = { gamesProcessed, cardsCreated, errors }
+  const syncResult = { gamesProcessed, gamesFailed, cardsCreated, errors }
 
   if (logId) {
     await syncLogger?.logComplete(logId, syncResult)
@@ -345,10 +394,15 @@ export async function runSync(
 
   if (stepLogger) {
     await stepLogger({
+      // The summary row must reflect failures even when some games succeeded —
+      // a partial-failure sync should never log a clean `ok` here while the
+      // step log is full of error rows (#68). (The user-facing terminal stage
+      // below stays `complete` for partial success so the sync still finishes.)
       step: 'sync-end',
-      status: errors.length > 0 && gamesProcessed === 0 ? 'error' : 'ok',
+      status: errors.length > 0 ? 'error' : 'ok',
       details: {
         gamesProcessed,
+        gamesFailed,
         cardsCreated,
         gamesTotal: pgns.length,
         errorCount: errors.length,
