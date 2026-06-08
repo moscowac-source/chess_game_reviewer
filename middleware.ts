@@ -40,6 +40,17 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // API routes authenticate themselves (each data route returns a 401 JSON via
+  // withAuthedRoute; only /api/health and /api/inngest are intentionally open).
+  // Never redirect an /api request to the HTML login page: during a session
+  // cookie refresh, concurrent requests can momentarily appear unauthenticated,
+  // and a redirect would hand the client a login page it can't parse — which
+  // surfaces as a brief "Never synced" / empty state (#69). Return the response
+  // carrying any refreshed cookies and let the route decide.
+  if (pathname.startsWith('/api/')) {
+    return response
+  }
+
   // Logged-in users visiting the landing or auth pages go straight to the app
   if (user && (pathname === '/' || pathname === '/login' || pathname === '/signup')) {
     const url = request.nextUrl.clone()
